@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
@@ -7,6 +7,8 @@ import os
 from dotenv import load_dotenv
 import pymysql
 import logging
+from functools import wraps
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -52,6 +54,20 @@ class User(UserMixin, db.Model):
         if not password or not self.password_hash:
             return False
         return check_password_hash(self.password_hash, password)
+
+class Team(db.Model):
+    __tablename__ = 'teams'
+    teams_ID = db.Column('teams_ID', db.Integer, primary_key=True)
+    teamID = db.Column('teamID', db.String(3), nullable=False)
+    yearID = db.Column('yearID', db.Integer, nullable=False)
+    team_name = db.Column('team_name', db.String(50))
+
+class UserSelection(db.Model):
+    __tablename__ = 'user_selections'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    team_id = db.Column(db.String(3), nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -112,6 +128,11 @@ def login():
             
             login_user(user)
             logger.info(f"User logged in successfully: {username}")
+            
+            # Redirect admins to the admin dashboard
+            if user.is_admin:
+                return redirect(url_for('admin_dashboard'))
+            
             return redirect(url_for('index'))
         
         flash('Invalid username or password')
@@ -125,6 +146,101 @@ def logout():
     logger.debug(f"User logged out: {current_user.username}")
     logout_user()
     return redirect(url_for('index'))
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            flash('You do not have permission to access this page.')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_dashboard():
+    users = User.query.all()
+    return render_template('admin/dashboard.html', users=users)
+
+@app.route('/admin/user/<int:user_id>/toggle_ban', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_ban(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash('You cannot ban yourself.')
+        return redirect(url_for('admin_dashboard'))
+    
+    user.is_banned = not user.is_banned
+    db.session.commit()
+    action = 'banned' if user.is_banned else 'unbanned'
+    flash(f'User {user.username} has been {action}.')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/user/<int:user_id>/toggle_admin', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_admin(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash('You cannot modify your own admin status.')
+        return redirect(url_for('admin_dashboard'))
+    
+    user.is_admin = not user.is_admin
+    db.session.commit()
+    action = 'granted admin privileges to' if user.is_admin else 'removed admin privileges from'
+    flash(f'Successfully {action} {user.username}.')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/select_team', methods=['GET', 'POST'])
+@login_required
+def select_team():
+    if request.method == 'POST':
+        team_id = request.form.get('team_id')
+        if team_id:
+            # Log the selection
+            selection = UserSelection(user_id=current_user.id, team_id=team_id)
+            db.session.add(selection)
+            db.session.commit()
+            
+            # Get no-hitters for the team
+            no_hitters_by = db.session.execute(
+                """
+                SELECT * FROM no_hitters 
+                WHERE pitcher_team = :team_id
+                ORDER BY yearID DESC
+                """,
+                {"team_id": team_id}
+            ).fetchall()
+            
+            no_hitters_against = db.session.execute(
+                """
+                SELECT * FROM no_hitters 
+                WHERE opponent_team = :team_id
+                ORDER BY yearID DESC
+                """,
+                {"team_id": team_id}
+            ).fetchall()
+            
+            return render_template(
+                'no_hitters.html',
+                no_hitters_by=no_hitters_by,
+                no_hitters_against=no_hitters_against,
+                team_id=team_id
+            )
+    
+    # Get unique teams for dropdown
+    teams = db.session.execute(
+        """
+        SELECT DISTINCT teamID, team_name 
+        FROM teams 
+        WHERE team_name IS NOT NULL 
+        ORDER BY team_name
+        """
+    ).fetchall()
+    
+    return render_template('select_team.html', teams=teams)
 
 if __name__ == '__main__':
     with app.app_context():

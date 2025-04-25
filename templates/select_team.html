@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Select Team - Baseball Trivia{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">Select a Team</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('select_team') }}">
+                        <div class="mb-3">
+                            <label for="team_id" class="form-label">Choose a team to see their no-hitter history:</label>
+                            <select class="form-select" id="team_id" name="team_id" required>
+                                <option value="">Select a team...</option>
+                                {% for team in teams %}
+                                    <option value="{{ team.teamID }}">{{ team.team_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary">View No-Hitters</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

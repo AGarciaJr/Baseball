@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}No-Hitters - Baseball Trivia{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <a href="{{ url_for('select_team') }}" class="btn btn-secondary">&larr; Back to Team Selection</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>No-Hitters Thrown By This Team</h3>
+                </div>
+                <div class="card-body">
+                    {% if no_hitters_by %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Pitcher</th>
+                                        <th>Opponent</th>
+                                        <th>Stats</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for game in no_hitters_by %}
+                                    <tr>
+                                        <td>{{ game.yearID }}</td>
+                                        <td>{{ game.nameFirst }} {{ game.nameLast }}</td>
+                                        <td>{{ game.opponent_team_name }}</td>
+                                        <td>
+                                            IP: {{ game.p_IPOuts // 3 }}.{{ game.p_IPOuts % 3 }}<br>
+                                            BB: {{ game.p_BB }}<br>
+                                            SO: {{ game.p_SO }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No no-hitters thrown by this team in our records.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3>No-Hitters Thrown Against This Team</h3>
+                </div>
+                <div class="card-body">
+                    {% if no_hitters_against %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Pitcher</th>
+                                        <th>Team</th>
+                                        <th>Stats</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for game in no_hitters_against %}
+                                    <tr>
+                                        <td>{{ game.yearID }}</td>
+                                        <td>{{ game.nameFirst }} {{ game.nameLast }}</td>
+                                        <td>{{ game.pitcher_team_name }}</td>
+                                        <td>
+                                            IP: {{ game.p_IPOuts // 3 }}.{{ game.p_IPOuts % 3 }}<br>
+                                            BB: {{ game.p_BB }}<br>
+                                            SO: {{ game.p_SO }}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No no-hitters thrown against this team in our records.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
