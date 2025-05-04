@@ -9,6 +9,7 @@ import pymysql
 import logging
 from functools import wraps
 from datetime import datetime
+from sqlalchemy import text
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -75,7 +76,19 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    score = None
+    if current_user.is_authenticated:
+        result = db.session.execute(text("""
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
+            FROM trivia_answers
+            WHERE user_id = :uid
+        """), {"uid": current_user.id}).fetchone()
+
+        score = f"{result.correct or 0} / {result.total or 0}"
+
+    return render_template('index.html', score=score)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -245,6 +258,118 @@ def select_team():
 @app.route('/snake')
 def snake():
     return render_template('snake.html')
+
+@app.route("/api/trivia/random", methods=["GET"])
+def get_random_trivia():
+    query = text("""
+        SELECT id, question_text, choice_a, choice_b, choice_c, choice_d, correct_answer
+        FROM trivia_questions
+        ORDER BY RAND()
+        LIMIT 1
+    """)
+    result = db.session.execute(query).fetchone()
+
+    if not result:
+        return jsonify({"error": "No trivia questions available"}), 404
+
+    return jsonify({
+        "id": result.id,
+        "question": result.question_text,
+        "choices": {
+            "A": result.choice_a,
+            "B": result.choice_b,
+            "C": result.choice_c,
+            "D": result.choice_d
+        },
+        "correct_answer": result.correct_answer
+    })
+
+@app.route('/trivia')
+@login_required
+def trivia_page():
+    return render_template('trivia.html')
+
+@app.route('/api/trivia/answer', methods=['POST'])
+@login_required
+def submit_trivia_answer():
+    data = request.get_json()
+    question_id = data.get("question_id")
+    selected = data.get("selected_answer")
+
+    if not question_id or not selected:
+        return jsonify({"error": "Missing question_id or selected_answer"}), 400
+
+    result = db.session.execute(text("""
+        SELECT correct_answer FROM trivia_questions
+        WHERE id = :qid
+    """), {"qid": question_id}).fetchone()
+
+    if not result:
+        return jsonify({"error": "Invalid question ID"}), 404
+
+    correct = result.correct_answer == selected
+
+    # Insert into trivia_answers
+    db.session.execute(text("""
+        INSERT INTO trivia_answers (user_id, question_id, selected_answer, is_correct)
+        VALUES (:uid, :qid, :selected, :correct)
+    """), {
+        "uid": current_user.id,
+        "qid": question_id,
+        "selected": selected,
+        "correct": correct
+    })
+    db.session.commit()
+
+    return jsonify({
+        "correct": correct,
+        "correct_answer": result.correct_answer
+    })
+
+@app.route('/api/trivia/score', methods=['GET'])
+@login_required
+def get_trivia_score():
+    result = db.session.execute(text("""
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
+        FROM trivia_answers
+        WHERE user_id = :uid
+    """), {"uid": current_user.id}).fetchone()
+
+    return jsonify({
+        "total": result.total or 0,
+        "correct": result.correct or 0
+    })
+
+@app.route('/api/trivia/generate', methods=['POST'])
+@login_required
+@admin_required
+def generate_trivia_batch():
+    from scripts.admin_trivia_generator import generate_multiple_home_run_questions
+    generate_multiple_home_run_questions(20)
+    return jsonify({"status": "✅ Generated 20 trivia questions"})
+
+@app.route('/profile')
+@login_required
+def profile():
+    result = db.session.execute(text("""
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
+        FROM trivia_answers
+        WHERE user_id = :uid
+    """), {"uid": current_user.id}).fetchone()
+
+    stats = {
+        "correct": result.correct or 0,
+        "total": result.total or 0
+    }
+
+    return render_template('profile.html', stats=stats)
+
+
+
 
 if __name__ == '__main__':
     with app.app_context():

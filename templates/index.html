@@ -6,9 +6,11 @@
 <div class="text-center">
     <h1 class="display-4">Welcome to Baseball Trivia</h1>
     {% if current_user.is_authenticated %}
-        <p class="lead">Hello, {{ current_user.username }}! Your current score: {{ current_user.score }}</p>
+        <p class="lead">
+            Hello, {{ current_user.username }}! Your current score: {{ score }}
+        </p>
         <div class="mt-4">
-            <a href="#" class="btn btn-primary btn-lg">Play Trivia</a>
+            <a href="trivia" class="btn btn-primary btn-lg">Play Trivia</a>
             <a href="#" class="btn btn-secondary btn-lg">View Team Stats</a>
         </div>
     {% else %}
