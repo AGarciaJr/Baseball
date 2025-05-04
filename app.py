@@ -242,6 +242,10 @@ def select_team():
     
     return render_template('select_team.html', teams=teams)
 
+@app.route('/snake')
+def snake():
+    return render_template('snake.html')
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
