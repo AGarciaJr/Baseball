@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h2>Trivia Game</h2>
+  <p id="score" class="fw-bold">Score: --</p>
+
+  <div id="question-box" class="my-3">
+    <p id="question">Loading question...</p>
+    <div id="choices"></div>
+  </div>
+
+  <p id="result" class="fw-bold"></p>
+  <button id="next-btn" class="btn btn-primary mt-3" style="display:none;">Next Question</button>
+</div>
+
+<script>
+  let currentQuestion = null;
+
+  function loadQuestion() {
+    fetch('/api/trivia/random')
+      .then(res => res.json())
+      .then(data => {
+        currentQuestion = data;
+        document.getElementById('question').textContent = data.question;
+
+        const choicesDiv = document.getElementById('choices');
+        choicesDiv.innerHTML = '';
+
+        for (const [letter, text] of Object.entries(data.choices)) {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-outline-secondary m-1';
+          btn.textContent = `${letter}. ${text}`;
+          btn.onclick = () => handleAnswer(letter);
+          choicesDiv.appendChild(btn);
+        }
+
+        document.getElementById('result').textContent = '';
+        document.getElementById('next-btn').style.display = 'none';
+        updateScore();
+      });
+  }
+
+  function handleAnswer(selected) {
+    fetch('/api/trivia/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question_id: currentQuestion.id,
+        selected_answer: selected
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      const resultText = data.correct
+        ? '✅ Correct!'
+        : `❌ Wrong. Correct answer: ${data.correct_answer}`;
+      document.getElementById('result').textContent = resultText;
+
+      const buttons = document.querySelectorAll('#choices button');
+      buttons.forEach(btn => btn.disabled = true);
+
+      document.getElementById('next-btn').style.display = 'inline-block';
+      updateScore();
+    });
+  }
+
+  function updateScore() {
+    fetch('/api/trivia/score')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('score').textContent =
+          `Score: ${data.correct} / ${data.total}`;
+      });
+  }
+
+  document.getElementById('next-btn').onclick = loadQuestion;
+  window.onload = loadQuestion;
+</script>
+{% endblock %}
+
+  

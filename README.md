@@ -13,7 +13,7 @@ A web-based baseball trivia game that allows users to test their knowledge of ba
 
 1. Create a virtual environment:
    ```bash
-   python -m venv venv
+   python -3.11 venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Baseball Trivia{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Your Profile</h2>
+
+  <ul class="list-group mt-3">
+    <li class="list-group-item"><strong>Username:</strong> {{ current_user.username }}</li>
+    <li class="list-group-item"><strong>Trivia Score:</strong> {{ stats.correct }} / {{ stats.total }}</li>
+    <li class="list-group-item"><strong>Admin:</strong>
+      {% if current_user.is_admin %}
+        ✅ Yes
+      {% else %}
+        ❌ No
+      {% endif %}
+    </li>
+  </ul>
+
+  <a href="{{ url_for('trivia_page') }}" class="btn btn-primary mt-4">Play More Trivia</a>
+</div>
+{% endblock %}
