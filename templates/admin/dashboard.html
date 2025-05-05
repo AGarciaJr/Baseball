@@ -12,8 +12,40 @@
             <h2>Trivia Management</h2>
         </div>
         <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="category-select" class="form-label">Category</label>
+                    <select id="category-select" class="form-select">
+                        <option value="">All Categories</option>
+                        <option value="Pitching">Pitching</option>
+                        <option value="Team Performance">Team Performance</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="question-count" class="form-label">Number of Questions</label>
+                    <input type="number" id="question-count" class="form-control" value="20" min="1" max="100">
+                </div>
+            </div>
             <button id="generate-btn" class="btn btn-primary">Generate Trivia Questions</button>
             <p id="generate-status" class="mt-2 fw-bold"></p>
+            
+            <!-- Generated Questions Table -->
+            <div id="questions-table" class="mt-4" style="display: none;">
+                <h3>Generated Questions</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Question</th>
+                                <th>Choices</th>
+                                <th>Correct Answer</th>
+                            </tr>
+                        </thead>
+                        <tbody id="questions-body">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -79,15 +111,62 @@
 <script>
 document.getElementById('generate-btn').addEventListener('click', () => {
   const status = document.getElementById('generate-status');
+  const category = document.getElementById('category-select').value;
+  const count = document.getElementById('question-count').value;
+  const questionsTable = document.getElementById('questions-table');
+  const questionsBody = document.getElementById('questions-body');
+  
   status.textContent = '⏳ Generating questions...';
+  questionsTable.style.display = 'none';
+  questionsBody.innerHTML = '';
 
   fetch('/api/trivia/generate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      category: category || null,
+      count: parseInt(count) || 20
+    })
   })
   .then(res => res.json())
   .then(data => {
-    status.textContent = data.status || '✅ Done!';
+    if (data.status === 'success') {
+      status.textContent = data.message;
+      
+      // Display the questions
+      if (data.questions && data.questions.length > 0) {
+        questionsTable.style.display = 'block';
+        data.questions.forEach(q => {
+          const row = document.createElement('tr');
+          
+          // Question cell
+          const questionCell = document.createElement('td');
+          questionCell.textContent = q.question;
+          row.appendChild(questionCell);
+          
+          // Choices cell
+          const choicesCell = document.createElement('td');
+          const choicesList = document.createElement('ul');
+          choicesList.className = 'list-unstyled';
+          Object.entries(q.choices).forEach(([letter, choice]) => {
+            const li = document.createElement('li');
+            li.textContent = `${letter}: ${choice}`;
+            choicesList.appendChild(li);
+          });
+          choicesCell.appendChild(choicesList);
+          row.appendChild(choicesCell);
+          
+          // Correct answer cell
+          const answerCell = document.createElement('td');
+          answerCell.textContent = q.correct_answer;
+          row.appendChild(answerCell);
+          
+          questionsBody.appendChild(row);
+        });
+      }
+    } else {
+      status.textContent = data.message || '❌ Failed to generate questions.';
+    }
   })
   .catch(() => {
     status.textContent = '❌ Failed to generate questions.';
