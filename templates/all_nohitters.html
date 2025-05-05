@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}All No-Hitters{% endblock %}
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">All No-Hitters</h1>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Pitcher Team</th>
+                    <th>Opponent</th>
+                    <th>Perfect Game?</th>
+                    <th>Pitchers</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for nh in nohitters %}
+                <tr>
+                    <td>{{ nh.game_date }}</td>
+                    <td>{{ nh.pitcher_team }}</td>
+                    <td>{{ nh.opponent_team }}</td>
+                    <td>{{ "Yes" if nh.is_perfect else "No" }}</td>
+                    <td>{{ nh.num_pitchers }}</td>
+                    <td>{{ nh.notes or "" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %} 

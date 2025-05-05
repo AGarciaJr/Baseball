@@ -507,7 +507,22 @@ def view_achievements():
 
     return render_template("achievements.html", achievements=achievements)
 
-
+@app.route('/all-nohitters')
+@login_required
+def all_nohitters():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT nh.game_date, t1.team_name AS pitcher_team, t2.team_name AS opponent_team, nh.is_perfect, nh.num_pitchers, nh.notes
+        FROM no_hitters nh
+        JOIN teams t1 ON nh.team_id = t1.teams_ID
+        JOIN teams t2 ON nh.opponent_id = t2.teams_ID
+        ORDER BY nh.game_date DESC
+    """)
+    nohitters = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('all_nohitters.html', nohitters=nohitters)
 
 if __name__ == '__main__':
     with app.app_context():
