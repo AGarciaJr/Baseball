@@ -1,23 +1,99 @@
 {% extends "base.html" %}
+{% block title %}Profile – Baseball Trivia{% endblock %}
 
-{% block title %}Profile - Baseball Trivia{% endblock %}
+{% block styles %}
+<style>
+  /* Make the profile header feel like the hero, but smaller */
+  .profile-header {
+    position: relative;
+    background: linear-gradient(
+      135deg,
+      #2e8b57 0%,
+      #3cb371 60%
+    );
+    color: #fff;
+    padding: 2rem 1rem;
+    margin-bottom: 2rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    text-align: center;
+  }
+  .profile-header::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255,255,255,0.15) 0,
+        rgba(255,255,255,0.15) 1px,
+        transparent 1px,
+        transparent 25px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.15) 0,
+        rgba(255,255,255,0.15) 1px,
+        transparent 1px,
+        transparent 25px
+      );
+    pointer-events: none;
+  }
+  .profile-header .fas {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    z-index: 1;
+    position: relative;
+  }
+  .profile-header h2 {
+    z-index: 1;
+    position: relative;
+  }
+
+  /* Elevate the card slightly */
+  .profile-card .card {
+    border-top: 4px solid #f4a460;
+    border-radius: 0.5rem;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-  <h2>Your Profile</h2>
+  <!-- Diamond‑grid header -->
+  <div class="profile-header">
+    <i class="fas fa-user-circle"></i>
+    <h2 class="mt-2">Your Profile</h2>
+  </div>
 
-  <ul class="list-group mt-3">
-    <li class="list-group-item"><strong>Username:</strong> {{ current_user.username }}</li>
-    <li class="list-group-item"><strong>Trivia Score:</strong> {{ stats.correct }} / {{ stats.total }}</li>
-    <li class="list-group-item"><strong>Admin:</strong>
-      {% if current_user.is_admin %}
-        ✅ Yes
-      {% else %}
-        ❌ No
-      {% endif %}
-    </li>
-  </ul>
+  <!-- Info card -->
+  <div class="profile-card mb-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Account Info</h5>
+        <ul class="list-unstyled profile-info mb-0">
+          <li><strong>Username:</strong> {{ current_user.username }}</li>
+          <li><strong>Trivia Score:</strong> {{ stats.correct }} / {{ stats.total }}</li>
+          <li>
+            <strong>Admin:</strong>
+            {% if current_user.is_admin %}
+              <span class="badge bg-success">Yes</span>
+            {% else %}
+              <span class="badge bg-secondary">No</span>
+            {% endif %}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
 
-  <a href="{{ url_for('trivia_page') }}" class="btn btn-primary mt-4">Play More Trivia</a>
-</div>
+  <!-- Actions -->
+  <div class="text-center">
+    <a href="{{ url_for('trivia_page') }}" class="btn btn-warning btn-lg me-2">
+      Play More Trivia
+    </a>
+    <a href="{{ url_for('select_team') }}" class="btn btn-outline-secondary btn-lg">
+      View No‑Hitters
+    </a>
+  </div>
 {% endblock %}

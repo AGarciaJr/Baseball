@@ -1,101 +1,210 @@
 {% extends "base.html" %}
-{% block content %}
-<div class="container mt-4">
-  <h2>Trivia Game</h2>
-  <p id="score" class="fw-bold">Score: --</p>
+{% block title %}Trivia – Baseball Trivia{% endblock %}
 
-  <div id="question-box" class="my-3">
-    <p id="question">Loading question...</p>
-    <div id="choices"></div>
-  </div>
-
-  <p id="result" class="fw-bold"></p>
-  <button id="next-btn" class="btn btn-primary mt-3" style="display:none;">Next Question</button>
-</div>
-
-<script>
-  let currentQuestion = null;
-
-  function loadQuestion() {
-    fetch('/api/trivia/random')
-      .then(res => res.json())
-      .then(data => {
-        currentQuestion = data;
-        document.getElementById('question').textContent = data.question;
-
-        const choicesDiv = document.getElementById('choices');
-        choicesDiv.innerHTML = '';
-
-        for (const [letter, text] of Object.entries(data.choices)) {
-          const btn = document.createElement('button');
-          btn.className = 'btn btn-outline-secondary m-1';
-          btn.textContent = `${letter}. ${text}`;
-          btn.onclick = () => handleAnswer(letter);
-          choicesDiv.appendChild(btn);
-        }
-
-        document.getElementById('result').textContent = '';
-        document.getElementById('next-btn').style.display = 'none';
-        updateScore();
-      });
+{% block styles %}
+<style>
+  /* Mini‑hero for trivia screen */
+  .hero-sm {
+    position: relative;
+    background: linear-gradient(135deg, #2e8b57 0%, #3cb371 60%);
+    color: #fff;
+    padding: 2.5rem 1rem;
+    text-align: center;
+    margin-bottom: 2rem;
+    overflow: hidden;
+    border-radius: 0.5rem;
+  }
+  .hero-sm::before {
+    content: "";
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255,255,255,0.15) 0,
+        rgba(255,255,255,0.15) 1px,
+        transparent 1px,
+        transparent 25px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.15) 0,
+        rgba(255,255,255,0.15) 1px,
+        transparent 1px,
+        transparent 25px
+      );
+    pointer-events: none;
+  }
+  .hero-sm .fas {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    position: relative; z-index: 1;
+  }
+  .hero-sm h2,
+  .hero-sm #score {
+    position: relative; z-index: 1;
   }
 
-  function handleAnswer(selected) {
-    fetch('/api/trivia/answer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        question_id: currentQuestion.id,
-        selected_answer: selected
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-      const resultText = data.correct
-        ? '✅ Correct!'
-        : `❌ Wrong. Correct answer: ${data.correct_answer}`;
-      document.getElementById('result').textContent = resultText;
-
-      const buttons = document.querySelectorAll('#choices button');
-      buttons.forEach(btn => btn.disabled = true);
-
-      document.getElementById('next-btn').style.display = 'inline-block';
-      updateScore();
-
-      // 🔥 Achievement toast trigger
-      if (data.achievements && data.achievements.length > 0) {
-        const toastBody = document.getElementById('achievementToastBody');
-        toastBody.innerText = `🎉 Achievement unlocked: ${data.achievements.join(", ")}`;
-        const toast = new bootstrap.Toast(document.getElementById('achievementToast'));
-        toast.show();
-      }
-    });
+  /* Question card styling */
+  .question-card {
+    border: none;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+  .question-card .card-body {
+    padding: 2rem;
   }
 
-  function updateScore() {
-    fetch('/api/trivia/score')
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('score').textContent =
-          `Score: ${data.correct} / ${data.total}`;
-      });
+  /* Choice buttons */
+  .choice-btn {
+    min-width: 140px;
+    margin: .5rem;
+    transition: transform .15s ease;
+  }
+  .choice-btn:hover:not(:disabled) {
+    transform: translateY(-3px);
+  }
+  .choice-btn.correct {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: #fff;
+  }
+  .choice-btn.wrong {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: #fff;
   }
 
-  document.getElementById('next-btn').onclick = loadQuestion;
-  window.onload = loadQuestion;
-</script>
-<!-- Achievement Toast -->
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-  <div id="achievementToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-    <div class="d-flex">
-      <div class="toast-body" id="achievementToastBody">
-        🎉 Achievement unlocked!
-      </div>
-      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-    </div>
-  </div>
-</div>
-
+  /* Result text */
+  #result {
+    font-size: 1.25rem;
+    margin-top: 1rem;
+  }
+</style>
 {% endblock %}
 
-  
+{% block content %}
+  <!-- Small hero banner -->
+  <section class="hero-sm">
+    <i class="fas fa-baseball-ball"></i>
+    <h2 class="mb-1">Trivia Game</h2>
+    <p id="score" class="lead fw-bold">Score: --</p>
+  </section>
+
+  <div class="container">
+    <div class="card question-card shadow-sm mb-5">
+      <div class="card-body">
+        <p id="question" class="h5">Loading question...</p>
+        <div id="choices" class="d-flex flex-wrap justify-content-center mt-4"></div>
+        <p id="result" class="text-center fw-bold"></p>
+        <div class="text-center mt-3">
+          <button id="next-btn" class="btn btn-primary btn-lg" style="display: none;">
+            Next Question
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Achievement Toast -->
+  <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="achievementToast"
+         class="toast align-items-center text-bg-success border-0"
+         role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="achievementToastBody">
+          🎉 Achievement unlocked!
+        </div>
+        <button type="button"
+                class="btn-close btn-close-white me-2 m-auto"
+                data-bs-dismiss="toast"
+                aria-label="Close"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trivia logic -->
+  <script>
+    let currentQuestion = null;
+
+    function loadQuestion() {
+      fetch('/api/trivia/random')
+        .then(r => r.json())
+        .then(data => {
+          currentQuestion = data;
+          document.getElementById('question').textContent = data.question;
+          const choicesDiv = document.getElementById('choices');
+          choicesDiv.innerHTML = '';
+          document.getElementById('result').textContent = '';
+
+          for (const [letter, text] of Object.entries(data.choices)) {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-outline-secondary choice-btn';
+            btn.textContent = `${letter}. ${text}`;
+            btn.onclick = () => handleAnswer(letter, btn);
+            choicesDiv.appendChild(btn);
+          }
+
+          document.getElementById('next-btn').style.display = 'none';
+          updateScore();
+        });
+    }
+
+    function handleAnswer(selected, btnClicked) {
+      fetch('/api/trivia/answer', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          question_id: currentQuestion.id,
+          selected_answer: selected
+        })
+      })
+      .then(r => r.json())
+      .then(data => {
+        // disable all
+        document.querySelectorAll('#choices button')
+          .forEach(b => b.disabled = true);
+
+        // mark correct / wrong
+        if (data.correct) {
+          btnClicked.classList.add('correct');
+          document.getElementById('result').textContent = '✅ Correct!';
+        } else {
+          btnClicked.classList.add('wrong');
+          // highlight correct answer
+          document.querySelectorAll('#choices button')
+            .forEach(b => {
+              if (b.textContent.startsWith(data.correct_answer + '.')) {
+                b.classList.add('correct');
+              }
+            });
+          document.getElementById('result').textContent =
+            `❌ Wrong. Answer: ${data.correct_answer}`;
+        }
+
+        document.getElementById('next-btn').style.display = 'inline-block';
+        updateScore();
+
+        // show achievement toast
+        if (data.achievements?.length) {
+          const body = document.getElementById('achievementToastBody');
+          body.innerText = `🎉 Achievement unlocked: ${data.achievements.join(', ')}`;
+          new bootstrap.Toast(
+            document.getElementById('achievementToast')
+          ).show();
+        }
+      });
+    }
+
+    function updateScore() {
+      fetch('/api/trivia/score')
+        .then(r => r.json())
+        .then(s => {
+          document.getElementById('score').textContent =
+            `Score: ${s.correct} / ${s.total}`;
+        });
+    }
+
+    document.getElementById('next-btn').onclick = loadQuestion;
+    window.onload = loadQuestion;
+  </script>
+{% endblock %}
