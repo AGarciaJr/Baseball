@@ -1,6 +1,13 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from app import app, db
 import logging
 from sqlalchemy import text
+from scripts.trivia_generators.pitching_generator import PitchingTriviaGenerator
+from scripts.trivia_generators.team_generator import TeamTriviaGenerator
+import argparse
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -104,6 +111,41 @@ class TriviaGenerator:
             logger.error(f"Error validating answer: {e}")
             return False
 
+def get_category_id(category_name):
+    with app.app_context():
+        result = db.session.execute(
+            text("SELECT id FROM trivia_categories WHERE name = :name"),
+            {"name": category_name}
+        ).fetchone()
+        return result.id if result else None
+
+def generate_trivia(category=None, count=20):
+    generators = {
+        'Pitching': PitchingTriviaGenerator,
+        'Team Performance': TeamTriviaGenerator,
+        # Add more generators here as they are created
+    }
+
+    generated_questions = []
+
+    if category:
+        if category not in generators:
+            print(f"❌ Unknown category: {category}")
+            print(f"Available categories: {', '.join(generators.keys())}")
+            return []
+        
+        generator = generators[category]()
+        print(f"Generating {count} {category} questions...")
+        generated_questions.extend(generator.generate_batch(count))
+    else:
+        # Generate questions from all categories
+        for category_name, generator_class in generators.items():
+            print(f"\nGenerating {count} {category_name} questions...")
+            generator = generator_class()
+            generated_questions.extend(generator.generate_batch(count))
+    
+    return generated_questions
+
 def main():
     generator = TriviaGenerator()
     question = generator.generate_grid_question()
@@ -116,4 +158,9 @@ def main():
         logger.error("Failed to generate trivia question")
 
 if __name__ == "__main__":
-    main() 
+    parser = argparse.ArgumentParser(description='Generate baseball trivia questions')
+    parser.add_argument('--category', help='Category of questions to generate')
+    parser.add_argument('--count', type=int, default=20, help='Number of questions to generate')
+    
+    args = parser.parse_args()
+    generate_trivia(args.category, args.count) 
