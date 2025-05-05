@@ -1,21 +1,130 @@
 {% extends "base.html" %}
 
-{% block title %}Home - Baseball Trivia{% endblock %}
+{% block title %}Home – Baseball Trivia{% endblock %}
+
+{% block styles %}
+<style>
+  .hero {
+    position: relative;
+    background: linear-gradient(
+      135deg,
+      #2e8b57 0%,
+      #3cb371 50%,
+      #f4a460 100%
+    );
+    color: #fff;
+    padding: 5rem 1rem 6rem;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255,255,255,0.15) 0,
+        rgba(255,255,255,0.15) 1px,
+        transparent 1px,
+        transparent 25px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.15) 0,
+        rgba(255,255,255,0.15) 1px,
+        transparent 1px,
+        transparent 25px
+      );
+    pointer-events: none;
+  }
+
+  .hero .icon {
+    font-size: 3rem;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
+
+  .btn-warning {
+    background-color: #f4a460;
+    border-color:     #f4a460;
+  }
+
+  .btn-warning:hover {
+    background-color: #e39a4d;
+    border-color:     #e39a4d;
+  }
+
+  .feature-card .card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    border: none;
+  }
+
+  .feature-card .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="text-center">
-    <h1 class="display-4">Welcome to Baseball Trivia</h1>
+<!-- Hero Section -->
+<section class="hero text-center">
+  <div class="container">
+    <h1 class="display-4 fw-bold mb-3">
+      <i class="fas fa-baseball-ball icon"></i>
+      Welcome to Baseball Trivia
+    </h1>
     {% if current_user.is_authenticated %}
-        <p class="lead">
-            Hello, {{ current_user.username }}! Your current score: {{ score }}
-        </p>
-        <div class="mt-4">
-            <a href="trivia" class="btn btn-primary btn-lg">Play Trivia</a>
-            <a href="team-nohitters-summary" class="btn btn-primary btn-lg">See Team No-Hitters</a>
-        </div>
+      <p class="lead mb-4">
+        Hello, <strong>{{ current_user.username }}</strong>!<br>
+        Your current score: <strong>{{ score }}</strong>
+      </p>
+      <div class="d-flex justify-content-center gap-3">
+        <a href="{{ url_for('trivia_page') }}" class="btn btn-lg btn-warning px-4">Play Trivia</a>
+        <a href="{{ url_for('team_nohitters_summary') }}" class="btn btn-lg btn-outline-light px-4">See No‑Hitters</a>
+      </div>
     {% else %}
-        <p class="lead">Please login to play the trivia game and view team statistics.</p>
-        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login</a>
+      <p class="lead mb-4">
+        Please <a class="text-warning" href="{{ url_for('login') }}">log in</a>
+        or <a class="text-warning" href="{{ url_for('register') }}">register</a>
+        to get started.
+      </p>
     {% endif %}
-</div>
-{% endblock %} 
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="container my-5">
+  <div class="row feature-card text-center">
+    <div class="col-md-4 mb-4">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <i class="fas fa-question-circle fa-3x mb-3 text-warning"></i>
+          <h5 class="card-title">Test Your Knowledge</h5>
+          <p class="card-text">Challenge yourself with baseball trivia and climb the leaderboard.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-4">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <i class="fas fa-glove fa-3x mb-3 text-warning"></i>
+          <h5 class="card-title">Explore No‑Hitters</h5>
+          <p class="card-text">Browse no‑hitters by team, date, and perfect games.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-4">
+      <div class="card h-100 shadow-sm">
+        <div class="card-body">
+          <i class="fas fa-award fa-3x mb-3 text-warning"></i>
+          <h5 class="card-title">View Achievements</h5>
+          <p class="card-text">Unlock new milestones.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
