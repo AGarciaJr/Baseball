@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ team.teamID }} No-Hitter History{% endblock %}
+
+{% block content %}
+<h1 class="text-center">No-Hitter History: {{ team.teamID }} – {{ team.team_name }}</h1>
+
+<h2 class="mt-5">Thrown BY {{ team.teamID }}</h2>
+{% if thrown_by %}
+  <table class="table table-bordered table-striped w-75 mx-auto">
+    <thead>
+      <tr><th>Date</th><th>Team</th></tr>
+    </thead>
+    <tbody>
+      {% for nh in thrown_by %}
+        <tr><td>{{ nh.game_date }}</td><td>{{ nh.teamID }} ({{ nh.team_name }})</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="text-center">No no-hitters thrown by this team.</p>
+{% endif %}
+
+<h2 class="mt-5">Thrown AGAINST {{ team.teamID }}</h2>
+{% if thrown_against %}
+  <table class="table table-bordered table-striped w-75 mx-auto">
+    <thead>
+      <tr><th>Date</th><th>Pitcher Team</th></tr>
+    </thead>
+    <tbody>
+      {% for nh in thrown_against %}
+        <tr><td>{{ nh.game_date }}</td><td>{{ nh.pitcher_teamID }} ({{ nh.pitcher_team_name }})</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="text-center">No no-hitters thrown against this team.</p>
+{% endif %}
+
+<div class="text-center mt-4">
+  <a href="{{ url_for('team_nohitters_summary') }}" class="btn btn-secondary">← Back to Team Selection</a>
+</div>
+{% endblock %}

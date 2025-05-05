@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
@@ -10,6 +10,7 @@ import logging
 from functools import wraps
 from datetime import datetime
 from sqlalchemy import text
+from db import get_db_connection
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -368,7 +369,63 @@ def profile():
 
     return render_template('profile.html', stats=stats)
 
+@app.route('/team-nohitters-summary')
+def team_nohitters_summary():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
 
+    cur.execute("""
+        SELECT t.teamID, MAX(t.team_name) AS team_name, COUNT(*) AS no_hitter_count
+        FROM teams t
+        JOIN no_hitters nh ON t.teams_ID = nh.team_id OR t.teams_ID = nh.opponent_id
+        GROUP BY t.teamID
+        ORDER BY t.teamID
+    """)
+    teams = cur.fetchall()
+
+    cur.close()
+    conn.close()
+    return render_template('team_nohitters_summary.html', teams=teams)
+
+@app.route('/team-nohitters/<team_id>')
+def team_nohitters_detail(team_id):
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    # Get display name from one team row
+    cur.execute("SELECT teamID, team_name FROM teams WHERE teamID = %s LIMIT 1", (team_id,))
+    team = cur.fetchone()
+
+    # No-hitters thrown BY this teamID
+    cur.execute("""
+        SELECT nh.game_date, t.teamID, t.team_name
+        FROM no_hitters nh
+        JOIN teams t ON nh.team_id = t.teams_ID
+        WHERE t.teamID = %s
+    """, (team_id,))
+    thrown_by = cur.fetchall()
+
+    # No-hitters thrown AGAINST this teamID
+    cur.execute("""
+        SELECT nh.game_date, t.teamID AS pitcher_teamID, t.team_name AS pitcher_team_name
+        FROM no_hitters nh
+        JOIN teams t ON nh.team_id = t.teams_ID
+        WHERE nh.opponent_id IN (
+            SELECT teams_ID FROM teams WHERE teamID = %s
+        )
+    """, (team_id,))
+    thrown_against = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template('team_nohitters_detail.html',
+        team=team, thrown_by=thrown_by, thrown_against=thrown_against)
+
+@app.route('/team-nohitters-redirect', methods=['POST'])
+def team_nohitters_detail_redirect():
+    team_id = request.form['team_id']
+    return redirect(url_for('team_nohitters_detail', team_id=team_id))
 
 
 if __name__ == '__main__':

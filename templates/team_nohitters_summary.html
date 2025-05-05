@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Select a Team{% endblock %}
+
+{% block content %}
+<h1 class="text-center">View No-Hitter History</h1>
+
+<form action="{{ url_for('team_nohitters_detail_redirect') }}" method="POST" class="text-center mt-4">
+  <div class="mb-3">
+    <label for="team_id" class="form-label">Select a Team:</label>
+    <select name="team_id" id="team_id" class="form-select w-50 mx-auto" required>
+      {% for team in teams %}
+        <option value="{{ team.teamID }}">{{ team.teamID }} – {{ team.team_name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-primary">View Details</button>
+</form>
+{% endblock %}
