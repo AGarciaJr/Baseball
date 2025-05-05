@@ -1,28 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}Home – Baseball Trivia{% endblock %}
+{% block title %}Home – Baseball Trivia{% endblock %}
 
 {% block styles %}
 <style>
-  /* hero with team‑color gradient + diamond‑grid overlay */
   .hero {
     position: relative;
     background: linear-gradient(
       135deg,
-      #2e8b57 0%,    /* dark green */
-      #3cb371 50%,   /* medium sea green */
-      #f4a460 100%   /* sandy tan */
+      #2e8b57 0%,
+      #3cb371 50%,
+      #f4a460 100%
     );
     color: #fff;
     padding: 5rem 1rem 6rem;
     overflow: hidden;
   }
+
   .hero::before {
     content: "";
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    /* two crossing repeating gradients to make diamonds */
     background-image:
       repeating-linear-gradient(
         45deg,
@@ -40,34 +39,34 @@
       );
     pointer-events: none;
   }
+
   .hero .icon {
     font-size: 3rem;
     vertical-align: middle;
     margin-right: 0.5rem;
   }
 
-  /* customize the orange “Play” button to look like infield dirt */
   .btn-warning {
     background-color: #f4a460;
     border-color:     #f4a460;
   }
+
   .btn-warning:hover {
     background-color: #e39a4d;
     border-color:     #e39a4d;
   }
 
-  /* feature‑card pop on hover */
   .feature-card .card {
     transition: transform 0.25s ease, box-shadow 0.25s ease;
     border: none;
   }
+
   .feature-card .card:hover {
     transform: translateY(-6px);
     box-shadow: 0 6px 15px rgba(0,0,0,0.15);
   }
 </style>
 {% endblock %}
-
 
 {% block content %}
 <!-- Hero Section -->
@@ -79,14 +78,12 @@
     </h1>
     {% if current_user.is_authenticated %}
       <p class="lead mb-4">
-        Hello, <strong>{{ current_user.username }}</strong>!
+        Hello, <strong>{{ current_user.username }}</strong>!<br>
         Your current score: <strong>{{ score }}</strong>
       </p>
       <div class="d-flex justify-content-center gap-3">
-        <a href="{{ url_for('trivia_page') }}"
-           class="btn btn-lg btn-warning px-4">Play Trivia</a>
-        <a href="{{ url_for('select_team') }}"
-           class="btn btn-lg btn-outline-light px-4">See No‑Hitters</a>
+        <a href="{{ url_for('trivia_page') }}" class="btn btn-lg btn-warning px-4">Play Trivia</a>
+        <a href="{{ url_for('team_nohitters_summary') }}" class="btn btn-lg btn-outline-light px-4">See No‑Hitters</a>
       </div>
     {% else %}
       <p class="lead mb-4">
@@ -106,9 +103,7 @@
         <div class="card-body">
           <i class="fas fa-question-circle fa-3x mb-3 text-warning"></i>
           <h5 class="card-title">Test Your Knowledge</h5>
-          <p class="card-text">
-            Challenge yourself with baseball trivia and climb the leaderboard.
-          </p>
+          <p class="card-text">Challenge yourself with baseball trivia and climb the leaderboard.</p>
         </div>
       </div>
     </div>
@@ -117,9 +112,7 @@
         <div class="card-body">
           <i class="fas fa-glove fa-3x mb-3 text-warning"></i>
           <h5 class="card-title">Explore No‑Hitters</h5>
-          <p class="card-text">
-            Browse no‑hitters by team, date, and perfect games.
-          </p>
+          <p class="card-text">Browse no‑hitters by team, date, and perfect games.</p>
         </div>
       </div>
     </div>
@@ -128,9 +121,7 @@
         <div class="card-body">
           <i class="fas fa-award fa-3x mb-3 text-warning"></i>
           <h5 class="card-title">View Achievements</h5>
-          <p class="card-text">
-            Track your progress and unlock new milestones.
-          </p>
+          <p class="card-text">Unlock new milestones.</p>
         </div>
       </div>
     </div>
