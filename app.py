@@ -10,7 +10,7 @@ import logging
 from functools import wraps
 from datetime import datetime
 from sqlalchemy import text
-from db import get_db_connection
+from db import get_db_connection, award_achievement
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -322,10 +322,34 @@ def submit_trivia_answer():
     })
     db.session.commit()
 
+    # ====== NEW: Check correct count and award achievements ======
+    score_result = db.session.execute(text("""
+        SELECT SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
+        FROM trivia_answers
+        WHERE user_id = :uid
+    """), {"uid": current_user.id}).fetchone()
+
+    correct_score = score_result.correct or 0
+
+    from db import award_achievement
+    achievements_awarded = []
+
+    if correct_score >= 10:
+        if award_achievement(current_user.id, "Bronze Medal", "Scored 100 correct answers!", "static/achievements/bronze.png"):
+            achievements_awarded.append("Bronze Medal")
+    if correct_score >= 200:
+        if award_achievement(current_user.id, "Silver Medal", "Scored 200 correct answers!", "static/achievements/silver.png"):
+            achievements_awarded.append("Silver Medal")
+    if correct_score >= 500:
+        if award_achievement(current_user.id, "Gold Medal", "Scored 500 correct answers!", "static/achievements/gold.png"):
+            achievements_awarded.append("Gold Medal")
+
     return jsonify({
         "correct": correct,
-        "correct_answer": result.correct_answer
+        "correct_answer": result.correct_answer,
+        "achievements": achievements_awarded  # 👈 return this for frontend to toast
     })
+
 
 @app.route('/api/trivia/score', methods=['GET'])
 @login_required
@@ -426,6 +450,26 @@ def team_nohitters_detail(team_id):
 def team_nohitters_detail_redirect():
     team_id = request.form['team_id']
     return redirect(url_for('team_nohitters_detail', team_id=team_id))
+
+@app.route('/achievements')
+@login_required
+def view_achievements():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    cur.execute("""
+        SELECT name, description, image_path, date_earned
+        FROM achievements
+        WHERE user_id = %s
+        ORDER BY date_earned DESC
+    """, (current_user.id,))
+    achievements = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template("achievements.html", achievements=achievements)
+
 
 
 if __name__ == '__main__':

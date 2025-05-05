@@ -61,6 +61,14 @@
 
       document.getElementById('next-btn').style.display = 'inline-block';
       updateScore();
+
+      // 🔥 Achievement toast trigger
+      if (data.achievements && data.achievements.length > 0) {
+        const toastBody = document.getElementById('achievementToastBody');
+        toastBody.innerText = `🎉 Achievement unlocked: ${data.achievements.join(", ")}`;
+        const toast = new bootstrap.Toast(document.getElementById('achievementToast'));
+        toast.show();
+      }
     });
   }
 
@@ -76,6 +84,18 @@
   document.getElementById('next-btn').onclick = loadQuestion;
   window.onload = loadQuestion;
 </script>
+<!-- Achievement Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <div id="achievementToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="achievementToastBody">
+        🎉 Achievement unlocked!
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
   
