@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
@@ -10,6 +10,7 @@ import logging
 from functools import wraps
 from datetime import datetime
 from sqlalchemy import text
+from db import get_db_connection, award_achievement
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -321,10 +322,34 @@ def submit_trivia_answer():
     })
     db.session.commit()
 
+    # ====== NEW: Check correct count and award achievements ======
+    score_result = db.session.execute(text("""
+        SELECT SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
+        FROM trivia_answers
+        WHERE user_id = :uid
+    """), {"uid": current_user.id}).fetchone()
+
+    correct_score = score_result.correct or 0
+
+    from db import award_achievement
+    achievements_awarded = []
+
+    if correct_score >= 10:
+        if award_achievement(current_user.id, "Bronze Medal", "Scored 100 correct answers!", "static/achievements/bronze.png"):
+            achievements_awarded.append("Bronze Medal")
+    if correct_score >= 200:
+        if award_achievement(current_user.id, "Silver Medal", "Scored 200 correct answers!", "static/achievements/silver.png"):
+            achievements_awarded.append("Silver Medal")
+    if correct_score >= 500:
+        if award_achievement(current_user.id, "Gold Medal", "Scored 500 correct answers!", "static/achievements/gold.png"):
+            achievements_awarded.append("Gold Medal")
+
     return jsonify({
         "correct": correct,
-        "correct_answer": result.correct_answer
+        "correct_answer": result.correct_answer,
+        "achievements": achievements_awarded  # 👈 return this for frontend to toast
     })
+
 
 @app.route('/api/trivia/score', methods=['GET'])
 @login_required
@@ -368,6 +393,82 @@ def profile():
 
     return render_template('profile.html', stats=stats)
 
+@app.route('/team-nohitters-summary')
+def team_nohitters_summary():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    cur.execute("""
+        SELECT t.teamID, MAX(t.team_name) AS team_name, COUNT(*) AS no_hitter_count
+        FROM teams t
+        JOIN no_hitters nh ON t.teams_ID = nh.team_id OR t.teams_ID = nh.opponent_id
+        GROUP BY t.teamID
+        ORDER BY t.teamID
+    """)
+    teams = cur.fetchall()
+
+    cur.close()
+    conn.close()
+    return render_template('team_nohitters_summary.html', teams=teams)
+
+@app.route('/team-nohitters/<team_id>')
+def team_nohitters_detail(team_id):
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    # Get display name from one team row
+    cur.execute("SELECT teamID, team_name FROM teams WHERE teamID = %s LIMIT 1", (team_id,))
+    team = cur.fetchone()
+
+    # No-hitters thrown BY this teamID
+    cur.execute("""
+        SELECT nh.game_date, t.teamID, t.team_name
+        FROM no_hitters nh
+        JOIN teams t ON nh.team_id = t.teams_ID
+        WHERE t.teamID = %s
+    """, (team_id,))
+    thrown_by = cur.fetchall()
+
+    # No-hitters thrown AGAINST this teamID
+    cur.execute("""
+        SELECT nh.game_date, t.teamID AS pitcher_teamID, t.team_name AS pitcher_team_name
+        FROM no_hitters nh
+        JOIN teams t ON nh.team_id = t.teams_ID
+        WHERE nh.opponent_id IN (
+            SELECT teams_ID FROM teams WHERE teamID = %s
+        )
+    """, (team_id,))
+    thrown_against = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template('team_nohitters_detail.html',
+        team=team, thrown_by=thrown_by, thrown_against=thrown_against)
+
+@app.route('/team-nohitters-redirect', methods=['POST'])
+def team_nohitters_detail_redirect():
+    team_id = request.form['team_id']
+    return redirect(url_for('team_nohitters_detail', team_id=team_id))
+
+@app.route('/achievements')
+@login_required
+def view_achievements():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    cur.execute("""
+        SELECT name, description, image_path, date_earned
+        FROM achievements
+        WHERE user_id = %s
+        ORDER BY date_earned DESC
+    """, (current_user.id,))
+    achievements = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template("achievements.html", achievements=achievements)
 
 
 
