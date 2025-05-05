@@ -371,9 +371,46 @@ def get_trivia_score():
 @login_required
 @admin_required
 def generate_trivia_batch():
-    from scripts.admin_trivia_generator import generate_multiple_home_run_questions
-    generate_multiple_home_run_questions(20)
-    return jsonify({"status": "✅ Generated 20 trivia questions"})
+    from scripts.generate_trivia import generate_trivia
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "status": "error",
+                "message": "No data provided"
+            }), 400
+            
+        category = data.get('category')
+        count = data.get('count', 20)
+        
+        # Validate count
+        try:
+            count = int(count)
+            if count < 1 or count > 100:
+                return jsonify({
+                    "status": "error",
+                    "message": "Count must be between 1 and 100"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "status": "error",
+                "message": "Invalid count value"
+            }), 400
+        
+        generated_questions = generate_trivia(category, count)
+        return jsonify({
+            "status": "success",
+            "message": f"✅ Generated {len(generated_questions)} trivia questions" + 
+                      (f" for category '{category}'" if category else " across all categories"),
+            "questions": generated_questions
+        })
+    except Exception as e:
+        logger.error(f"Error generating trivia: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"❌ Error generating questions: {str(e)}"
+        }), 500
 
 @app.route('/profile')
 @login_required
