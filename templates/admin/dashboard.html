@@ -17,8 +17,6 @@
                     <label for="category-select" class="form-label">Category</label>
                     <select id="category-select" class="form-select">
                         <option value="">All Categories</option>
-                        <option value="Pitching">Pitching</option>
-                        <option value="Team Performance">Team Performance</option>
                     </select>
                 </div>
                 <div class="col-md-6">
@@ -172,5 +170,26 @@ document.getElementById('generate-btn').addEventListener('click', () => {
     status.textContent = '❌ Failed to generate questions.';
   });
 });
+
+// Dynamically load categories
+function loadCategories() {
+    fetch('/api/trivia/categories')
+        .then(res => res.json())
+        .then(categories => {
+            const select = document.getElementById('category-select');
+            // Remove all except "All Categories"
+            select.innerHTML = '<option value="">All Categories</option>';
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                select.appendChild(opt);
+            });
+        });
+}
+window.onload = function() {
+    loadCategories();
+    // If you have other onload logic, call it here too
+};
 </script>
 {% endblock %}
