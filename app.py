@@ -369,6 +369,70 @@ def profile():
 
     return render_template('profile.html', stats=stats)
 
+@app.route('/api/trivia/random_name')
+@login_required
+def random_name_question():
+    row = db.session.execute(
+        text("SELECT * FROM trivia_name_questions ORDER BY RAND() LIMIT 1")
+    ).fetchone()
+    if not row:
+        return jsonify({'error':'no questions available'}), 404
+
+    return jsonify({
+      'id':            row.id,
+      'question_text': row.question_text,
+      'num_required':  row.num_required,
+      'team_id':       row.team_id,
+      'start_year':    row.start_year,
+      'end_year':      row.end_year
+    })
+
+
+@app.route('/api/trivia/name/answer', methods=['POST'])
+@login_required
+def name_answer():
+    data = request.get_json()
+    qid     = data.get('question_id')
+    answers = data.get('answers', [])
+
+    q = db.session.execute(
+        text("SELECT * FROM trivia_name_questions WHERE id = :id"),
+        {'id': qid}
+    ).fetchone()
+    if not q:
+        return jsonify({'error':'invalid question_id'}), 400
+
+    valid_rows = db.session.execute(text("""
+      SELECT DISTINCT CONCAT(p.nameFirst,' ',p.nameLast) AS full_name
+      FROM fielding f
+      JOIN people p ON p.playerID = f.playerID
+      WHERE f.teamID   = :team
+        AND f.yearID BETWEEN :sy AND :ey
+    """), {
+      'team': q.team_id,
+      'sy':   q.start_year,
+      'ey':   q.end_year
+    }).fetchall()
+
+    valid = {r.full_name.lower() for r in valid_rows}
+    seen = set()
+    correct = []
+
+    print(valid)
+
+    for ans in answers:
+        name = ans.strip()
+        key  = name.lower()
+        if key in valid and key not in seen:
+            correct.append(name)
+            seen.add(key)
+
+    return jsonify({
+      'correct_count':   len(correct),
+      'total_required':  q.num_required,
+      'correct_answers': correct
+    })
+
 @app.route('/trivia_name')
 @login_required
 def trivia_name_page():

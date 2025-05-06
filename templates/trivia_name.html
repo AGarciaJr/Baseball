@@ -1,3 +1,4 @@
+{# templates/trivia_name.html #}
 {% extends "base.html" %}
 
 {% block content %}
@@ -25,16 +26,16 @@
       .then(res => res.json())
       .then(data => {
         currentChallenge = data;
-        document.getElementById('prompt').textContent =
-          `Can you name ${data.x} baseball players ${data.y}?`;
+
+        document.getElementById('prompt').textContent = data.question_text;
 
         const inputsDiv = document.getElementById('player-inputs');
         inputsDiv.innerHTML = '';
-        for (let i = 0; i < data.x; i++) {
+        for (let i = 0; i < data.num_required; i++) {
           const input = document.createElement('input');
           input.type = 'text';
           input.name = `player_${i}`;
-          input.placeholder = `Player #${i+1}`;
+          input.placeholder = `Player #${i + 1}`;
           input.className = 'form-control mb-2';
           input.required = true;
           inputsDiv.appendChild(input);
@@ -57,9 +58,16 @@
 
   document.getElementById('fill-form').onsubmit = ev => {
     ev.preventDefault();
-    // Gather answers
     const inputs = document.querySelectorAll('#player-inputs input');
     const answers = Array.from(inputs).map(i => i.value.trim());
+    const lower = answers.map(a => a.toLowerCase());
+    const dupes = lower.filter((v,i,a) => a.indexOf(v) !== i);
+    if (dupes.length) {
+      const uniqueDupes = [...new Set(dupes)];
+      document.getElementById('feedback').textContent =
+        `Please remove duplicate entries: ${uniqueDupes.join(', ')}`;
+      return;
+    }
 
     fetch('/api/trivia/name/answer', {
       method: 'POST',
@@ -71,11 +79,9 @@
     })
     .then(res => res.json())
     .then(data => {
-
       document.getElementById('feedback').textContent =
-        `You got ${data.correct_count} / ${data.total} right. ` +
+        `You got ${data.correct_count} / ${data.total_required} right. ` +
         `Correct answers: ${data.correct_answers.join(', ')}`;
-
 
       document.querySelectorAll('#player-inputs input')
         .forEach(i => i.disabled = true);
