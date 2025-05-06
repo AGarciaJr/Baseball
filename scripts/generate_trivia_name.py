@@ -12,9 +12,9 @@ def generate_team_players_question():
 
     # scale number of names to the span length
     max_span = now - 1990 + 1
-    span     = end_year - start_year + 1
-    scaled   = int(span / max_span * 30)
-    x        = max(5, min(scaled, 20))
+    span = end_year - start_year + 1
+    scaled = int(span / max_span * 29)
+    x = max(3, min(scaled, 10))
 
     with app.app_context():
         teams = db.session.execute(text("SELECT teamID, team_name FROM teams")).fetchall()
