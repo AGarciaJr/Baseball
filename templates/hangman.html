@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Hall of Fame Hangman{% endblock %}
+
+{% block content %}
+<div class="text-center mt-4">
+  <h2>Hall of Fame Hangman</h2>
+  <p class="lead">Guess the name of a Hall of Fame player!</p>
+
+  <!-- Stickman Canvas -->
+  <canvas id="hangman-canvas" width="200" height="250" class="mb-4 border rounded bg-light"></canvas>
+
+  <h3 id="masked-word" class="mb-4" style="letter-spacing: 0.4rem;">Loading...</h3>
+
+  <div id="keyboard" class="mb-3 d-flex flex-wrap justify-content-center" style="max-width: 600px; margin: 0 auto;"></div>
+
+  <p><strong>Wrong guesses:</strong> <span id="wrong-guesses">None</span></p>
+  <p><strong>Attempts left:</strong> <span id="attempts-left">6</span></p>
+
+  <div id="endgame-message" class="alert d-none mt-3"></div>
+
+  <button id="restart-btn" class="btn btn-primary d-none mt-3">Play Again</button>
+</div>
+
+<script>
+  let gameOver = false;
+
+  function createKeyboard() {
+    const keyboard = document.getElementById('keyboard');
+    keyboard.innerHTML = '';
+    for (let i = 65; i <= 90; i++) {
+      const letter = String.fromCharCode(i);
+      const btn = document.createElement('button');
+      btn.textContent = letter;
+      btn.className = 'btn btn-outline-secondary m-1';
+      btn.onclick = () => guessLetter(letter, btn);
+      keyboard.appendChild(btn);
+    }
+  }
+
+  function drawHangmanStage(stage) {
+    const canvas = document.getElementById('hangman-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#333';
+
+    if (stage >= 1) {
+      // base + pole
+      ctx.strokeRect(10, 230, 100, 10);
+      ctx.beginPath();
+      ctx.moveTo(60, 230);
+      ctx.lineTo(60, 20);
+      ctx.stroke();
+    }
+
+    if (stage >= 2) {
+      ctx.beginPath();
+      ctx.moveTo(60, 20);
+      ctx.lineTo(140, 20);
+      ctx.moveTo(140, 20);
+      ctx.lineTo(140, 40);
+      ctx.stroke();
+    }
+
+    if (stage >= 3) {
+      ctx.beginPath();
+      ctx.arc(140, 55, 15, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (stage >= 4) {
+      ctx.beginPath();
+      ctx.moveTo(140, 70);
+      ctx.lineTo(140, 120);
+      ctx.stroke();
+    }
+
+    if (stage >= 5) {
+      ctx.beginPath();
+      ctx.moveTo(140, 80);
+      ctx.lineTo(120, 100);
+      ctx.moveTo(140, 80);
+      ctx.lineTo(160, 100);
+      ctx.stroke();
+    }
+
+    if (stage >= 6) {
+      ctx.beginPath();
+      ctx.moveTo(140, 120);
+      ctx.lineTo(120, 150);
+      ctx.moveTo(140, 120);
+      ctx.lineTo(160, 150);
+      ctx.stroke();
+    }
+  }
+
+  function startGame() {
+    gameOver = false;
+    document.getElementById('restart-btn').classList.add('d-none');
+    document.getElementById('endgame-message').classList.add('d-none');
+    document.getElementById('wrong-guesses').textContent = 'None';
+    document.getElementById('attempts-left').textContent = '6';
+    drawHangmanStage(0);
+
+    fetch('/api/hangman/start')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('masked-word').textContent = data.masked;
+        sessionStorage.setItem('hangman_word', data.answer || '???');
+        createKeyboard();
+      });
+  }
+
+  function guessLetter(letter, button) {
+    if (gameOver) return;
+    button.disabled = true;
+
+    fetch('/api/hangman/guess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ letter })
+    })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('masked-word').textContent = data.masked;
+      document.getElementById('wrong-guesses').textContent = data.wrong_guesses.join(', ') || 'None';
+      document.getElementById('attempts-left').textContent = data.attempts_left;
+
+      drawHangmanStage(data.wrong_guesses.length);
+
+      if (data.game_over || data.won) {
+        gameOver = true;
+        const msg = document.getElementById('endgame-message');
+        msg.classList.remove('d-none');
+        msg.className = 'alert mt-3 ' + (data.won ? 'alert-success' : 'alert-danger');
+
+        msg.textContent = data.won
+            ? 'You won! 🎉'
+            : 'Game over! 😢 The correct answer was: ' + (data.correct_answer || '???');
+
+        document.getElementById('restart-btn').classList.remove('d-none');
+      }
+    });
+  }
+
+  document.getElementById('restart-btn').addEventListener('click', startGame);
+  window.onload = startGame;
+</script>
+{% endblock %}

@@ -546,6 +546,80 @@ def get_leaderboard():
 def leaderboard_page():
     return render_template('leaderboard.html')
 
+@app.route('/api/hangman/start', methods=['GET'])
+def start_hangman():
+    query = text("""
+        SELECT CONCAT(nameFirst, ' ', nameLast) AS fullname
+        FROM people
+        WHERE playerID IN (
+            SELECT playerID FROM halloffame
+            WHERE inducted = 'Y'
+        )
+        AND nameFirst IS NOT NULL AND nameLast IS NOT NULL
+        ORDER BY RAND()
+        LIMIT 1;
+    """)
+    result = db.session.execute(query).fetchone()
+    if not result:
+        return jsonify({'error': 'No names found'}), 404
+
+    word = result[0].upper()
+
+    # Store session data
+    session['hangman_word'] = word
+    session['correct_guesses'] = []
+    session['wrong_guesses'] = []
+    session['max_attempts'] = 6
+
+    # Return masked word like "_ _ _ _   _ _ _ _"
+    masked = ''.join([char if char == ' ' else '_' for char in word])
+    return jsonify({'masked': masked, 'attempts_left': 6})
+
+@app.route('/api/hangman/guess', methods=['POST'])
+def guess_letter():
+    data = request.get_json()
+    letter = data.get('letter', '').upper()
+
+    word = session.get('hangman_word', '')
+    correct = session.get('correct_guesses', [])
+    wrong = session.get('wrong_guesses', [])
+    max_attempts = session.get('max_attempts', 6)
+
+    if not word or not letter.isalpha() or len(letter) != 1:
+        return jsonify({'error': 'Invalid state or input'}), 400
+
+    if letter in correct or letter in wrong:
+        return jsonify({'message': 'Already guessed'}), 200
+
+    if letter in word:
+        correct.append(letter)
+        session['correct_guesses'] = correct
+    else:
+        wrong.append(letter)
+        session['wrong_guesses'] = wrong
+
+    masked = ''.join([char if (char in correct or char == ' ') else '_' for char in word])
+    attempts_left = max_attempts - len(wrong)
+
+    game_over = attempts_left <= 0
+    won = '_' not in masked
+
+    response = {
+        'masked': masked,
+        'wrong_guesses': wrong,
+        'attempts_left': attempts_left,
+        'game_over': game_over,
+        'won': won
+    }
+
+    if game_over:
+        response['correct_answer'] = word
+
+    return jsonify(response)
+
+@app.route('/hangman')
+def hangman_page():
+    return render_template('hangman.html')
 
 if __name__ == '__main__':
     with app.app_context():
