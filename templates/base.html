@@ -84,18 +84,26 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav ms-auto">
           {% if current_user.is_authenticated %}
-            <li class="nav-item">
-              <a
-                class="nav-link {% if request.endpoint=='all_nohitters' %}active{% endif %}"
-                href="{{ url_for('all_nohitters') }}"
-              >No‑Hitters</a>
-            </li>
-            <li class="nav-item">
-              <a
-                class="nav-link {% if request.endpoint=='view_achievements' %}active{% endif %}"
-                href="{{ url_for('view_achievements') }}"
-              >Achievements</a>
-            </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'leaderboard_page' %}active{% endif %}"
+               href="{{ url_for('leaderboard_page') }}">
+              Leaderboard
+            </a>
+          </li>
+          
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'all_nohitters' %}active{% endif %}"
+               href="{{ url_for('all_nohitters') }}">
+              No‑Hitters
+            </a>
+          </li>
+          
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'view_achievements' %}active{% endif %}"
+               href="{{ url_for('view_achievements') }}">
+              Achievements
+            </a>
+          </li>          
             {% if current_user.is_admin %}
               <li class="nav-item">
                 <a

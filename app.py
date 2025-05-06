@@ -524,6 +524,29 @@ def all_nohitters():
     conn.close()
     return render_template('all_nohitters.html', nohitters=nohitters)
 
+@app.route('/api/leaderboard')
+def get_leaderboard():
+    query = text("""
+        SELECT u.username, COUNT(*) AS score
+        FROM user u
+        JOIN trivia_answers a ON u.id = a.user_id
+        WHERE (u.is_banned IS NULL OR u.is_banned = 0)
+          AND a.is_correct = 1
+        GROUP BY u.id
+        ORDER BY score DESC
+        LIMIT 10
+    """)
+    result = db.session.execute(query)
+    leaderboard = [{'username': row[0], 'score': row[1]} for row in result]
+    return jsonify(leaderboard)
+
+
+
+@app.route('/leaderboard')
+def leaderboard_page():
+    return render_template('leaderboard.html')
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
