@@ -37,6 +37,31 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+def getUserScore(uid):
+    result = db.session.execute(text("""
+        SELECT
+          (SELECT COUNT(*) 
+             FROM trivia_answers 
+            WHERE user_id = :uid
+          )
+        + (SELECT COUNT(*) 
+             FROM trivia_name_answers 
+            WHERE user_id = :uid
+          ) AS total,
+
+          (SELECT COALESCE(SUM(is_correct),0) 
+             FROM trivia_answers 
+            WHERE user_id = :uid
+          )
+        + (SELECT COALESCE(SUM(is_correct),0) 
+             FROM trivia_name_answers 
+            WHERE user_id = :uid
+          ) AS correct
+    """), {"uid": uid}).fetchone()
+
+    return result
+
+
 # User model
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -78,13 +103,7 @@ def load_user(user_id):
 def index():
     score = None
     if current_user.is_authenticated:
-        result = db.session.execute(text("""
-            SELECT
-                COUNT(*) AS total,
-                SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
-            FROM trivia_answers
-            WHERE user_id = :uid
-        """), {"uid": current_user.id}).fetchone()
+        result = getUserScore(current_user.id)
 
         score = f"{result.correct or 0} / {result.total or 0}"
 
@@ -326,21 +345,22 @@ def submit_trivia_answer():
         "correct_answer": result.correct_answer
     })
 
+from flask import jsonify
+from flask_login import login_required, current_user
+from sqlalchemy import text
+
 @app.route('/api/trivia/score', methods=['GET'])
 @login_required
 def get_trivia_score():
-    result = db.session.execute(text("""
-        SELECT
-            COUNT(*) AS total,
-            SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
-        FROM trivia_answers
-        WHERE user_id = :uid
-    """), {"uid": current_user.id}).fetchone()
+    uid = current_user.id
+
+    result = getUserScore(uid)
 
     return jsonify({
-        "total": result.total or 0,
+        "total":   result.total   or 0,
         "correct": result.correct or 0
     })
+
 
 @app.route('/api/trivia/generate', methods=['POST'])
 @login_required
@@ -392,7 +412,7 @@ def random_name_question():
 @login_required
 def name_answer():
     data = request.get_json()
-    qid     = data.get('question_id')
+    qid  = data.get('question_id')
     answers = data.get('answers', [])
 
     q = db.session.execute(
@@ -418,14 +438,26 @@ def name_answer():
     seen = set()
     correct = []
 
-    print(valid)
-
     for ans in answers:
         name = ans.strip()
-        key  = name.lower()
-        if key in valid and key not in seen:
+        key = name.lower()
+        is_corr = key in valid and key not in seen
+        if is_corr:
             correct.append(name)
             seen.add(key)
+        db.session.execute(text("""
+          INSERT INTO trivia_name_answers
+            (user_id, question_id, submitted_answer, is_correct)
+          VALUES
+            (:uid, :qid, :ans, :correct)
+        """), {
+          'uid':     current_user.id,
+          'qid':     qid,
+          'ans':     name,
+          'correct': is_corr
+        })
+
+        db.session.commit()
 
     return jsonify({
       'correct_count':   len(correct),
