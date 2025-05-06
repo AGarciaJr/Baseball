@@ -86,8 +86,8 @@
           {% if current_user.is_authenticated %}
             <li class="nav-item">
               <a
-                class="nav-link {% if request.endpoint=='select_team' %}active{% endif %}"
-                href="{{ url_for('select_team') }}"
+                class="nav-link {% if request.endpoint=='all_nohitters' %}active{% endif %}"
+                href="{{ url_for('all_nohitters') }}"
               >No‑Hitters</a>
             </li>
             <li class="nav-item">
