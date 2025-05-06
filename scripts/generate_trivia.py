@@ -7,6 +7,17 @@ import logging
 from sqlalchemy import text
 from scripts.trivia_generators.pitching_generator import PitchingTriviaGenerator
 from scripts.trivia_generators.team_generator import TeamTriviaGenerator
+from scripts.trivia_generators.awards_generator import AwardsTriviaGenerator
+from scripts.trivia_generators.managers_generator import ManagersTriviaGenerator
+from scripts.trivia_generators.franchises_generator import FranchisesTriviaGenerator
+from scripts.trivia_generators.divisions_generator import DivisionsTriviaGenerator
+from scripts.trivia_generators.leagues_generator import LeaguesTriviaGenerator
+from scripts.trivia_generators.parks_generator import ParksTriviaGenerator
+from scripts.trivia_generators.people_generator import PeopleTriviaGenerator
+from scripts.trivia_generators.schools_generator import SchoolsTriviaGenerator
+from scripts.trivia_generators.no_hitters_generator import NoHittersTriviaGenerator
+from scripts.trivia_generators.halloffame_generator import HallOfFameTriviaGenerator
+from scripts.trivia_generators.seriespost_generator import SeriesPostTriviaGenerator
 import argparse
 
 # Configure logging
@@ -123,7 +134,17 @@ def generate_trivia(category=None, count=20):
     generators = {
         'Pitching': PitchingTriviaGenerator,
         'Team Performance': TeamTriviaGenerator,
-        # Add more generators here as they are created
+        'Awards': AwardsTriviaGenerator,
+        'Managers': ManagersTriviaGenerator,
+        'Franchises': FranchisesTriviaGenerator,
+        'Divisions': DivisionsTriviaGenerator,
+        'Leagues': LeaguesTriviaGenerator,
+        'Parks': ParksTriviaGenerator,
+        'Player Biographies': PeopleTriviaGenerator,
+        'Schools': SchoolsTriviaGenerator,
+        'No-Hitters': NoHittersTriviaGenerator,
+        'Hall of Fame': HallOfFameTriviaGenerator,
+        'Postseason': SeriesPostTriviaGenerator,
     }
 
     generated_questions = []
