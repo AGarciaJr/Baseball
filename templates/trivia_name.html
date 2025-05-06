@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2>Name That Player!</h2>
+  <p id="score" class="fw-bold">Score: --</p>
+
+  <div id="challenge-box" class="my-3">
+    <p id="prompt">Loading challenge…</p>
+    <form id="fill-form">
+      <div id="player-inputs" class="mb-3"></div>
+      <button type="submit" class="btn btn-primary">Submit Answers</button>
+    </form>
+  </div>
+
+  <p id="feedback" class="fw-bold"></p>
+  <button id="next-btn" class="btn btn-secondary mt-3" style="display:none;">Next Challenge</button>
+</div>
+
+<script>
+  let currentChallenge;
+
+  function loadChallenge() {
+    fetch('/api/trivia/random_name')
+      .then(res => res.json())
+      .then(data => {
+        currentChallenge = data;
+        document.getElementById('prompt').textContent =
+          `Can you name ${data.x} baseball players ${data.y}?`;
+
+        const inputsDiv = document.getElementById('player-inputs');
+        inputsDiv.innerHTML = '';
+        for (let i = 0; i < data.x; i++) {
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.name = `player_${i}`;
+          input.placeholder = `Player #${i+1}`;
+          input.className = 'form-control mb-2';
+          input.required = true;
+          inputsDiv.appendChild(input);
+        }
+
+        document.getElementById('feedback').textContent = '';
+        document.getElementById('next-btn').style.display = 'none';
+        updateScore();
+      });
+  }
+
+  function updateScore() {
+    fetch('/api/trivia/score')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('score').textContent =
+          `Score: ${data.correct} / ${data.total}`;
+      });
+  }
+
+  document.getElementById('fill-form').onsubmit = ev => {
+    ev.preventDefault();
+    // Gather answers
+    const inputs = document.querySelectorAll('#player-inputs input');
+    const answers = Array.from(inputs).map(i => i.value.trim());
+
+    fetch('/api/trivia/name/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question_id: currentChallenge.id,
+        answers: answers
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+
+      document.getElementById('feedback').textContent =
+        `You got ${data.correct_count} / ${data.total} right. ` +
+        `Correct answers: ${data.correct_answers.join(', ')}`;
+
+
+      document.querySelectorAll('#player-inputs input')
+        .forEach(i => i.disabled = true);
+
+      document.getElementById('next-btn').style.display = 'inline-block';
+      updateScore();
+    });
+  };
+
+  document.getElementById('next-btn').onclick = loadChallenge;
+  window.onload = loadChallenge;
+</script>
+{% endblock %}

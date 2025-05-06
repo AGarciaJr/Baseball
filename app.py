@@ -23,7 +23,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-please-change')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'mysql://root:password@localhost/Sandlot2TheSQL')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'mysql://root:password@127.0.0.1:3307/Sandlot2TheSQL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configure session settings
@@ -346,9 +346,10 @@ def get_trivia_score():
 @login_required
 @admin_required
 def generate_trivia_batch():
-    from scripts.admin_trivia_generator import generate_multiple_home_run_questions
+    from scripts.admin_trivia_generator import generate_multiple_home_run_questions, generate_multiple_name_questions
     generate_multiple_home_run_questions(20)
-    return jsonify({"status": "✅ Generated 20 trivia questions"})
+    generate_multiple_name_questions(20)
+    return jsonify({"status": "✅ Generated 20 trivia questions of each type"})
 
 @app.route('/profile')
 @login_required
@@ -368,8 +369,10 @@ def profile():
 
     return render_template('profile.html', stats=stats)
 
-
-
+@app.route('/trivia_name')
+@login_required
+def trivia_name_page():
+    return render_template('trivia_name.html')
 
 if __name__ == '__main__':
     with app.app_context():
