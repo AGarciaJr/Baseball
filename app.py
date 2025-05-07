@@ -335,7 +335,7 @@ def submit_trivia_answer():
     achievements_awarded = []
 
     if correct_score >= 10:
-        if award_achievement(current_user.id, "Bronze Medal", "Scored 100 correct answers!", "static/achievements/bronze.png"):
+        if award_achievement(current_user.id, "Bronze Medal", "Scored 10 correct answers!", "static/achievements/bronze.png"):
             achievements_awarded.append("Bronze Medal")
     if correct_score >= 200:
         if award_achievement(current_user.id, "Silver Medal", "Scored 200 correct answers!", "static/achievements/silver.png"):
@@ -620,6 +620,19 @@ def guess_letter():
 @app.route('/hangman')
 def hangman_page():
     return render_template('hangman.html')
+
+@app.route("/api/award_achievement", methods=["POST"])
+def api_award_achievement():
+    data = request.get_json()
+    name = data.get("name")
+    description = data.get("description")
+    image_path = data.get("image_path", None)
+
+    if not current_user.is_authenticated:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    success = award_achievement(current_user.id, name, description, image_path)
+    return jsonify({"success": success})
 
 if __name__ == '__main__':
     with app.app_context():

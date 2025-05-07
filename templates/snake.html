@@ -11,19 +11,15 @@
     <p class="lead">Eat baseballs to grow. Don't hit the walls or yourself!</p>
   </div>
 
-  <!-- Flex layout: Game and Description -->
   <div class="row justify-content-center">
     <div class="col-md-6 text-center">
-      <!-- Scoreboard UI -->
       <div class="d-flex justify-content-center gap-4 mb-2">
         <div><strong>Inning:</strong> <span id="inning">1</span></div>
         <div><strong>Hits:</strong> <span id="hits">0</span></div>
         <div><strong>Runs:</strong> <span id="runs">0</span></div>
       </div>
 
-      <!-- Game Canvas -->
       <canvas id="snake-canvas" width="400" height="400" class="border border-success rounded shadow-sm mb-2"></canvas>
-
       <p id="startMessage" class="text-muted">Press any key to start</p>
       <div id="game-over" class="alert alert-danger d-none mt-3">Game Over! Press any key to restart.</div>
     </div>
@@ -40,7 +36,6 @@
             <li><strong>Runs:</strong> Every 3 hits = 1 run scored.</li>
             <li>Avoid hitting walls or yourself!</li>
           </ul>
-
           <hr>
           <h6 class="text-success">Leaderboard</h6>
           <ol id="leaderboard" class="small ps-3 mb-0"></ol>
@@ -81,19 +76,59 @@
     document.getElementById('inning').textContent = innings;
   }
 
+  function handleGameOver() {
+    clearInterval(interval);
+
+    const runs = Math.floor(hits / 3);
+    saveHighScore({ hits, runs, inning: innings }, username);
+
+    // Achievements
+    if (hits >= 10) {
+      unlockAchievement("Batting Practice", "Get 10 hits in one game", "/static/achievements/baseball-bat.png");
+    }
+    if (runs >= 5) {
+      unlockAchievement("Scored 5 Runs", "Score 5 runs in one game", "/static/achievements/baseball.png");
+    }
+    if (innings >= 5) {
+      unlockAchievement("Iron Snake", "Survive 5 innings", "/static/achievements/snake.png");
+    }
+    if (hits === 0) {
+      unlockAchievement("Strikeout", "Finish a game with 0 hits", "/static/achievements/strikeout.png");
+    }
+
+    document.getElementById('game-over').classList.remove('d-none');
+    document.getElementById('startMessage').style.display = 'block';
+    started = false;
+  }
+
+  function unlockAchievement(name, description, imagePath = null) {
+    fetch("/api/award_achievement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description, image_path: imagePath })
+    }).then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const body = document.getElementById('achievementToastBody');
+          body.innerText = `🎉 Achievement unlocked: ${name}`;
+          new bootstrap.Toast(document.getElementById('achievementToast')).show();
+        } else {
+          console.warn("Achievement not saved:", name, data.error || "");
+        }
+      });
+  }
+
   function draw() {
     if (Date.now() - lastInningUpdate >= 15000) {
       innings++;
       lastInningUpdate = Date.now();
     }
 
-    // Draw field stripes
     for (let row = 0; row < canvas.height / box; row++) {
       ctx.fillStyle = row % 2 === 0 ? '#6BBF59' : '#4FA44F';
       ctx.fillRect(0, row * box, canvas.width, box);
     }
 
-    // Draw snake
     for (let i = 0; i < snake.length; i++) {
       ctx.fillStyle = i === 0 ? '#28a745' : '#33cc33';
       ctx.strokeStyle = '#fff';
@@ -104,7 +139,6 @@
       ctx.stroke();
     }
 
-    // Draw food
     ctx.font = '20px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -130,14 +164,6 @@
     updateStats();
   }
 
-  function handleGameOver() {
-    clearInterval(interval);
-    saveHighScore({ hits, runs: Math.floor(hits / 3), inning: innings }, username);
-    document.getElementById('game-over').classList.remove('d-none');
-    document.getElementById('startMessage').style.display = 'block';
-    started = false;
-  }
-
   document.addEventListener('keydown', e => {
     if (!started) {
       snake = [{ x: 160, y: 200 }];
@@ -146,7 +172,7 @@
       hits = 0;
       innings = 1;
       lastInningUpdate = Date.now();
-      interval = setInterval(draw, 110); // faster snake speed
+      interval = setInterval(draw, 110);
       started = true;
       document.getElementById('startMessage').style.display = 'none';
       document.getElementById('game-over').classList.add('d-none');
@@ -188,7 +214,6 @@
     updateLeaderboard();
   }
 
-
   function updateLeaderboard() {
     const scores = JSON.parse(localStorage.getItem('snakeScores') || '[]');
     const list = document.getElementById('leaderboard');
@@ -200,7 +225,23 @@
     });
   }
 
-
   updateLeaderboard();
 </script>
+
+<!-- Achievement Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <div id="achievementToast"
+       class="toast align-items-center text-bg-success border-0"
+       role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="achievementToastBody">
+        🎉 Achievement unlocked!
+      </div>
+      <button type="button"
+              class="btn-close btn-close-white me-2 m-auto"
+              data-bs-dismiss="toast"
+              aria-label="Close"></button>
+    </div>
+  </div>
+</div>
 {% endblock %}
