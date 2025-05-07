@@ -386,7 +386,7 @@ def get_trivia_score():
 @login_required
 @admin_required
 def generate_trivia_batch():
-    from scripts.generate_trivia import generate_trivia, generate_multiple_name_questions
+    from scripts.generate_trivia import generate_trivia, generate_multiple_name_questions, generate_multiple_country_questions
     
     try:
         data = request.get_json()
@@ -413,6 +413,7 @@ def generate_trivia_batch():
                 "message": "Invalid count value"
             }), 400
         generate_multiple_name_questions(count)
+        generate_multiple_country_questions(count)
         generated_questions = generate_trivia(category, count)
         return jsonify({
             "status": "success",
@@ -434,13 +435,7 @@ def generate_trivia_batch():
 @app.route('/profile')
 @login_required
 def profile():
-    result = db.session.execute(text("""
-        SELECT
-            COUNT(*) AS total,
-            SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
-        FROM trivia_answers
-        WHERE user_id = :uid
-    """), {"uid": current_user.id}).fetchone()
+    result = getUserScore(current_user.id)
 
     stats = {
         "correct": result.correct or 0,
@@ -682,6 +677,77 @@ def random_name_question():
       'start_year':    row.start_year,
       'end_year':      row.end_year
     })
+
+@app.route('/api/trivia/random_country')
+@login_required
+def random_country_question():
+    row = db.session.execute(
+        text("SELECT * FROM trivia_country_questions ORDER BY RAND() LIMIT 1")
+    ).fetchone()
+    if not row:
+        return jsonify({'error':'no country questions available'}), 404
+
+    return jsonify({
+      'id':            row.id,
+      'question_text': row.question_text,
+      'num_required':  row.num_required,
+      'country':       row.country,
+      'created_at':    row.created_at.isoformat()
+    })
+
+
+@app.route('/api/trivia/country/answer', methods=['POST'])
+@login_required
+def country_answer():
+    data = request.get_json()
+    qid  = data.get('question_id')
+    answers  = data.get('answers', [])
+
+    q = db.session.execute(
+        text("SELECT * FROM trivia_country_questions WHERE id = :id"),
+        {'id': qid}
+    ).fetchone()
+    if not q:
+        return jsonify({'error':'invalid question_id'}), 400
+
+    valid_rows = db.session.execute(text("""
+        SELECT CONCAT(nameFirst, ' ', nameLast) AS full_name
+          FROM people
+         WHERE birthCountry = :country
+    """), {'country': q.country}).fetchall()
+    valid = {r.full_name.lower() for r in valid_rows}
+
+    seen    = set()
+    correct = []
+
+    for ans in answers:
+        name = ans.strip()
+        key = name.lower()
+        is_corr  = (key in valid) and (key not in seen)
+        if is_corr:
+            correct.append(name)
+            seen.add(key)
+        db.session.execute(text("""
+          INSERT INTO trivia_name_answers
+            (user_id, question_id, submitted_answer, is_correct)
+          VALUES
+            (:uid, :qid, :ans, :correct)
+        """), {
+          'uid':     current_user.id,
+          'qid':     qid,
+          'ans':     name,
+          'correct': is_corr
+        })
+
+    db.session.commit()
+
+    return jsonify({
+      'correct_count':   len(correct),
+      'total_required':  q.num_required,
+      'correct_answers': correct
+    })
+
+
 
 
 @app.route('/api/trivia/name/answer', methods=['POST'])

@@ -62,3 +62,55 @@ def generate_team_players_question():
         db.session.commit()
         print(f"✅ Inserted: {question_text}")
 
+def generate_country_players_question():
+    with app.app_context():
+        used = {
+            row.country
+            for row in db.session.execute(
+                text("SELECT DISTINCT country FROM trivia_country_questions")
+            ).fetchall()
+        }
+
+        country_rows = db.session.execute(text("""
+            SELECT birthCountry AS country, COUNT(*) AS cnt
+              FROM people
+             WHERE birthCountry NOT IN :used
+          GROUP BY birthCountry
+            HAVING cnt >= 3
+        """), {'used': tuple(used) or ('',)}).fetchall()
+
+        if not country_rows:
+            print("❌ No new countries left to seed.")
+            return
+
+        max_count = max(r.cnt for r in country_rows)
+
+        country, count = random.choice(country_rows)
+
+        scaled = int((count / max_count) * 20)
+        x = max(3, min(scaled, 20))
+
+        players = db.session.execute(text("""
+            SELECT playerID, nameFirst, nameLast
+              FROM people
+             WHERE birthCountry = :country
+        """), {'country': country}).fetchall()
+
+        if len(players) < x:
+            print(f"❌ Only {len(players)} players from {country}, need {x}.")
+            return
+
+        question_text = f"Can you name {x} players from {country}?"
+        db.session.execute(text("""
+            INSERT INTO trivia_country_questions
+              (question_text, num_required, country)
+            VALUES
+              (:q, :num, :country)
+        """), {
+            'q':       question_text,
+            'num':     x,
+            'country': country
+        })
+        db.session.commit()
+
+        print(f"✅ Inserted: {question_text}")
