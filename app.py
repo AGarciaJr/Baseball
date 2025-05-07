@@ -687,15 +687,16 @@ def name_answer():
         return jsonify({'error':'invalid question_id'}), 400
 
     valid_rows = db.session.execute(text("""
-      SELECT DISTINCT CONCAT(p.nameFirst,' ',p.nameLast) AS full_name
-      FROM fielding f
-      JOIN people p ON p.playerID = f.playerID
-      WHERE f.teamID   = :team
-        AND f.yearID BETWEEN :sy AND :ey
+        SELECT DISTINCT p.playerID, p.nameFirst, p.nameLast FROM (
+            SELECT f.playerID FROM fielding f WHERE f.teamID = :team_id AND f.yearID BETWEEN :start_year AND :end_year
+            UNION
+            SELECT b.playerID FROM batting b EHERE b.teamID  = :team_id AND b.yearID BETWEEN :start_year AND :end_year
+        ) AS pl
+        JOIN people p ON p.playerID = pl.playerID;
     """), {
       'team': q.team_id,
-      'sy':   q.start_year,
-      'ey':   q.end_year
+      'start_year':   q.start_year,
+      'end_year':   q.end_year
     }).fetchall()
 
     valid = {r.full_name.lower() for r in valid_rows}
