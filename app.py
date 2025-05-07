@@ -24,7 +24,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-please-change')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'mysql://root:password@localhost/Sandlot2TheSQL')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'mysql://root:password@127.0.0.1:3307/Sandlot2TheSQL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Configure session settings
@@ -37,6 +37,31 @@ migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+def getUserScore(uid):
+    result = db.session.execute(text("""
+        SELECT
+          (SELECT COUNT(*) 
+             FROM trivia_answers 
+            WHERE user_id = :uid
+          )
+        + (SELECT COUNT(*) 
+             FROM trivia_name_answers 
+            WHERE user_id = :uid
+          ) AS total,
+
+          (SELECT COALESCE(SUM(is_correct),0) 
+             FROM trivia_answers 
+            WHERE user_id = :uid
+          )
+        + (SELECT COALESCE(SUM(is_correct),0) 
+             FROM trivia_name_answers 
+            WHERE user_id = :uid
+          ) AS correct
+    """), {"uid": uid}).fetchone()
+
+    return result
+
 
 # User model
 class User(UserMixin, db.Model):
@@ -79,13 +104,7 @@ def load_user(user_id):
 def index():
     score = None
     if current_user.is_authenticated:
-        result = db.session.execute(text("""
-            SELECT
-                COUNT(*) AS total,
-                SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
-            FROM trivia_answers
-            WHERE user_id = :uid
-        """), {"uid": current_user.id}).fetchone()
+        result = getUserScore(current_user.id)
 
         score = f"{result.correct or 0} / {result.total or 0}"
 
@@ -350,28 +369,24 @@ def submit_trivia_answer():
         "achievements": achievements_awarded  # 👈 return this for frontend to toast
     })
 
-
 @app.route('/api/trivia/score', methods=['GET'])
 @login_required
 def get_trivia_score():
-    result = db.session.execute(text("""
-        SELECT
-            COUNT(*) AS total,
-            SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
-        FROM trivia_answers
-        WHERE user_id = :uid
-    """), {"uid": current_user.id}).fetchone()
+    uid = current_user.id
+
+    result = getUserScore(uid)
 
     return jsonify({
-        "total": result.total or 0,
+        "total":   result.total   or 0,
         "correct": result.correct or 0
     })
+
 
 @app.route('/api/trivia/generate', methods=['POST'])
 @login_required
 @admin_required
 def generate_trivia_batch():
-    from scripts.generate_trivia import generate_trivia
+    from scripts.generate_trivia import generate_trivia, generate_multiple_name_questions
     
     try:
         data = request.get_json()
@@ -397,7 +412,7 @@ def generate_trivia_batch():
                 "status": "error",
                 "message": "Invalid count value"
             }), 400
-        
+        generate_multiple_name_questions(count)
         generated_questions = generate_trivia(category, count)
         return jsonify({
             "status": "success",
@@ -411,6 +426,10 @@ def generate_trivia_batch():
             "status": "error",
             "message": f"❌ Error generating questions: {str(e)}"
         }), 500
+    '''from scripts.admin_trivia_generator import generate_multiple_home_run_questions, generate_multiple_name_questions
+    generate_multiple_home_run_questions(20)
+    generate_multiple_name_questions(20)
+    return jsonify({"status": "✅ Generated 20 trivia questions of each type"})'''
 
 @app.route('/profile')
 @login_required
@@ -633,6 +652,88 @@ def api_award_achievement():
 
     success = award_achievement(current_user.id, name, description, image_path)
     return jsonify({"success": success})
+
+@app.route('/api/trivia/random_name')
+@login_required
+def random_name_question():
+    row = db.session.execute(
+        text("SELECT * FROM trivia_name_questions ORDER BY RAND() LIMIT 1")
+    ).fetchone()
+    if not row:
+        return jsonify({'error':'no questions available'}), 404
+
+    return jsonify({
+      'id':            row.id,
+      'question_text': row.question_text,
+      'num_required':  row.num_required,
+      'team_id':       row.team_id,
+      'start_year':    row.start_year,
+      'end_year':      row.end_year
+    })
+
+
+@app.route('/api/trivia/name/answer', methods=['POST'])
+@login_required
+def name_answer():
+    data = request.get_json()
+    qid  = data.get('question_id')
+    answers = data.get('answers', [])
+
+    q = db.session.execute(
+        text("SELECT * FROM trivia_name_questions WHERE id = :id"),
+        {'id': qid}
+    ).fetchone()
+    if not q:
+        return jsonify({'error':'invalid question_id'}), 400
+
+    valid_rows = db.session.execute(text("""
+        SELECT DISTINCT p.playerID, p.nameFirst, p.nameLast FROM (
+            SELECT f.playerID FROM fielding f WHERE f.teamID = :team_id AND f.yearID BETWEEN :start_year AND :end_year
+            UNION
+            SELECT b.playerID FROM batting b WHERE b.teamID  = :team_id AND b.yearID BETWEEN :start_year AND :end_year
+        ) AS pl
+        JOIN people p ON p.playerID = pl.playerID;
+    """), {
+      'team': q.team_id,
+      'start_year':   q.start_year,
+      'end_year':   q.end_year
+    }).fetchall()
+
+    valid = {r.full_name.lower() for r in valid_rows}
+    seen = set()
+    correct = []
+
+    for ans in answers:
+        name = ans.strip()
+        key = name.lower()
+        is_corr = key in valid and key not in seen
+        if is_corr:
+            correct.append(name)
+            seen.add(key)
+        db.session.execute(text("""
+          INSERT INTO trivia_name_answers
+            (user_id, question_id, submitted_answer, is_correct)
+          VALUES
+            (:uid, :qid, :ans, :correct)
+        """), {
+          'uid':     current_user.id,
+          'qid':     qid,
+          'ans':     name,
+          'correct': is_corr
+        })
+
+        db.session.commit()
+
+    return jsonify({
+      'correct_count':   len(correct),
+      'total_required':  q.num_required,
+      'correct_answers': correct
+    })
+
+@app.route('/trivia_name')
+@login_required
+def trivia_name_page():
+    return render_template('trivia_name.html')
 
 if __name__ == '__main__':
     with app.app_context():

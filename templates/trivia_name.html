@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Baseball Trivia – Name That Player{% endblock %}
+
+{% block styles %}
+<style>
+  .hero {
+    position: relative;
+    background: linear-gradient(
+      135deg,
+      #2e8b57 0%,
+      #3cb371 50%,
+      #f4a460 100%
+    );
+    color: #fff;
+    padding: 5rem 1rem 6rem;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        rgba(255,255,255,0.15) 0,
+        rgba(255,255,255,0.15) 1px,
+        transparent 1px,
+        transparent 25px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgba(255,255,255,0.15) 0,
+        rgba(255,255,255,0.15) 1px,
+        transparent 1px,
+        transparent 25px
+      );
+    pointer-events: none;
+  }
+
+  .hero .icon {
+    font-size: 3rem;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
+
+  .btn-warning {
+    background-color: #f4a460;
+    border-color:     #f4a460;
+  }
+
+  .btn-warning:hover {
+    background-color: #e39a4d;
+    border-color:     #e39a4d;
+  }
+
+  .feature-card .card {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    border: none;
+  }
+
+  .feature-card .card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero text-center">
+  <div class="container">
+    <h1 class="display-4 fw-bold mb-3">
+      <i class="fas fa-baseball-ball icon"></i>
+      Name That Player!
+    </h1>
+    <p class="lead mb-4">
+      Can you name baseball players by team and era? Test your knowledge and climb the leaderboard.
+    </p>
+  </div>
+</section>
+
+<div class="container mt-4">
+  <p id="score" class="fw-bold">Score: --</p>
+
+  <div id="challenge-box" class="my-3">
+    <p id="prompt">Loading challenge…</p>
+    <form id="fill-form">
+      <div id="player-inputs" class="mb-3"></div>
+      <button type="submit" class="btn btn-primary">Submit Answers</button>
+    </form>
+  </div>
+
+  <p id="feedback" class="fw-bold"></p>
+  <button id="next-btn" class="btn btn-secondary mt-3" style="display:none;">Next Challenge</button>
+</div>
+
+
+
+<script>
+  let currentChallenge;
+
+  function loadChallenge() {
+    fetch('/api/trivia/random_name')
+      .then(res => res.json())
+      .then(data => {
+        currentChallenge = data;
+        document.getElementById('prompt').textContent = data.question_text;
+
+        const inputsDiv = document.getElementById('player-inputs');
+        inputsDiv.innerHTML = '';
+        for (let i = 0; i < data.num_required; i++) {
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.name = `player_${i}`;
+          input.placeholder = `Player #${i+1}`;
+          input.className = 'form-control mb-2';
+          input.required = true;
+          inputsDiv.appendChild(input);
+        }
+
+        document.getElementById('feedback').textContent = '';
+        document.getElementById('next-btn').style.display = 'none';
+        updateScore();
+      });
+  }
+
+  function updateScore() {
+    fetch('/api/trivia/score')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('score').textContent =
+          `Score: ${data.correct} / ${data.total}`;
+      });
+  }
+
+  document.getElementById('fill-form').onsubmit = ev => {
+    ev.preventDefault();
+    const inputs = document.querySelectorAll('#player-inputs input');
+    const answers = Array.from(inputs).map(i => i.value.trim());
+    const lower = answers.map(a => a.toLowerCase());
+    const dupes = lower.filter((v,i,a) => a.indexOf(v) !== i);
+    if (dupes.length) {
+      const uniqueDupes = [...new Set(dupes)];
+      document.getElementById('feedback').textContent =
+        `Please remove duplicates: ${uniqueDupes.join(', ')}`;
+      return;
+    }
+
+    fetch('/api/trivia/name/answer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question_id: currentChallenge.id,
+        answers: answers
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('feedback').textContent =
+        `You got ${data.correct_count} / ${data.total_required} right. ` +
+        `Correct answers: ${data.correct_answers.join(', ')}`;
+
+      document.querySelectorAll('#player-inputs input')
+        .forEach(i => i.disabled = true);
+
+      document.getElementById('next-btn').style.display = 'inline-block';
+      updateScore();
+    });
+  };
+
+  document.getElementById('next-btn').onclick = loadChallenge;
+  window.onload = loadChallenge;
+</script>
+{% endblock %}

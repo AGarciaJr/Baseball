@@ -18,6 +18,7 @@ from scripts.trivia_generators.schools_generator import SchoolsTriviaGenerator
 from scripts.trivia_generators.no_hitters_generator import NoHittersTriviaGenerator
 from scripts.trivia_generators.halloffame_generator import HallOfFameTriviaGenerator
 from scripts.trivia_generators.seriespost_generator import SeriesPostTriviaGenerator
+from scripts.generate_trivia_name import generate_team_players_question
 import argparse
 
 # Configure logging
@@ -166,6 +167,13 @@ def generate_trivia(category=None, count=20):
             generated_questions.extend(generator.generate_batch(count))
     
     return generated_questions
+
+def generate_multiple_name_questions(count=20):
+    with app.app_context():
+        for _ in range(count):
+            generate_team_players_question()
+        print(f"✅ Generated {count} home run trivia questions")
+
 
 def main():
     generator = TriviaGenerator()
