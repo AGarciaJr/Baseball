@@ -175,7 +175,7 @@
     .then(data => {
       document.getElementById('feedback').textContent =
         `You got ${data.correct_count} / ${data.total_required} right. ` +
-        `Correct answers: ${data.correct_answers.join(', ')}`;
+        `Your correct answers: ${data.correct_answers.join(', ')}`;
 
       inputs.forEach(i => i.disabled = true);
       document.getElementById('next-btn').style.display = 'inline-block';
