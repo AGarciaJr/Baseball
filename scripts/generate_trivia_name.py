@@ -10,7 +10,6 @@ def generate_team_players_question():
     start_year = random.randint(1990, now - 1)
     end_year   = random.randint(start_year + 1, now)
 
-    # scale number of names to the span length
     max_span = now - 1990 + 1
     span = end_year - start_year + 1
     scaled = int(span / max_span * 29)
@@ -42,13 +41,11 @@ def generate_team_players_question():
             return
 
         sampled = random.sample(players, x)
-        # … you don’t store answers …
         question_text = (
             f"Can you name {x} players who played for the {team_name} "
             f"between {start_year} and {end_year}?"
         )
 
-        # insert just the parameters—answers are checked at submission time
         ins = text("""
           INSERT INTO trivia_name_questions
             (question_text, num_required, team_id, start_year, end_year)

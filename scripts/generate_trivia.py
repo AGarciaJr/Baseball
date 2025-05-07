@@ -167,6 +167,13 @@ def generate_trivia(category=None, count=20):
     
     return generated_questions
 
+def generate_multiple_name_questions(count=20):
+    with app.app_context():
+        for _ in range(count):
+            generate_team_players_question()
+        print(f"✅ Generated {count} home run trivia questions")
+
+
 def main():
     generator = TriviaGenerator()
     question = generator.generate_grid_question()

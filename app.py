@@ -386,7 +386,7 @@ def get_trivia_score():
 @login_required
 @admin_required
 def generate_trivia_batch():
-    from scripts.generate_trivia import generate_trivia
+    from scripts.generate_trivia import generate_trivia, generate_multiple_name_questions
     
     try:
         data = request.get_json()
@@ -420,6 +420,7 @@ def generate_trivia_batch():
                       (f" for category '{category}'" if category else " across all categories"),
             "questions": generated_questions
         })
+        generate_multiple_name_questions(count)
     except Exception as e:
         logger.error(f"Error generating trivia: {str(e)}")
         return jsonify({
