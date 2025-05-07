@@ -51,6 +51,10 @@
 </div>
 
 <script>
+  const username = {{ current_user.username | tojson }};
+</script>
+
+<script>
   const canvas = document.getElementById('snake-canvas');
   const ctx = canvas.getContext('2d');
   const box = 20;
@@ -128,7 +132,7 @@
 
   function handleGameOver() {
     clearInterval(interval);
-    saveHighScore({ hits, runs: Math.floor(hits / 3), inning: innings });
+    saveHighScore({ hits, runs: Math.floor(hits / 3), inning: innings }, username);
     document.getElementById('game-over').classList.remove('d-none');
     document.getElementById('startMessage').style.display = 'block';
     started = false;
@@ -176,13 +180,14 @@
     this.closePath();
   };
 
-  function saveHighScore(score) {
+  function saveHighScore(score, username) {
     const scores = JSON.parse(localStorage.getItem('snakeScores') || '[]');
-    scores.push(score);
+    scores.push({ ...score, username });
     scores.sort((a, b) => b.hits - a.hits);
     localStorage.setItem('snakeScores', JSON.stringify(scores.slice(0, 5)));
     updateLeaderboard();
   }
+
 
   function updateLeaderboard() {
     const scores = JSON.parse(localStorage.getItem('snakeScores') || '[]');
@@ -190,10 +195,11 @@
     list.innerHTML = '';
     scores.forEach(score => {
       const li = document.createElement('li');
-      li.textContent = `Hits: ${score.hits} | Runs: ${score.runs} | Inning: ${score.inning}`;
+      li.textContent = `${score.username}: Hits ${score.hits}, Runs ${score.runs}, Inning ${score.inning}`;
       list.appendChild(li);
     });
   }
+
 
   updateLeaderboard();
 </script>

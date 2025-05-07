@@ -96,6 +96,8 @@
 </section>
 
 <!-- Games for Fun Section -->
+{% if current_user.is_authenticated %}
+<!-- Games for Fun Section -->
 <section class="container my-5">
   <div class="text-center mb-4">
     <h3 class="fw-bold text-success">Games for Fun</h3>
@@ -127,6 +129,8 @@
     </div>
   </div>
 </section>
+{% endif %}
+
 
 <!-- Features Section -->
 <section class="container my-5">
