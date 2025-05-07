@@ -1,6 +1,24 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from app import app, db
 import logging
 from sqlalchemy import text
+from scripts.trivia_generators.pitching_generator import PitchingTriviaGenerator
+from scripts.trivia_generators.team_generator import TeamTriviaGenerator
+from scripts.trivia_generators.awards_generator import AwardsTriviaGenerator
+from scripts.trivia_generators.managers_generator import ManagersTriviaGenerator
+from scripts.trivia_generators.franchises_generator import FranchisesTriviaGenerator
+from scripts.trivia_generators.divisions_generator import DivisionsTriviaGenerator
+from scripts.trivia_generators.leagues_generator import LeaguesTriviaGenerator
+from scripts.trivia_generators.parks_generator import ParksTriviaGenerator
+from scripts.trivia_generators.people_generator import PeopleTriviaGenerator
+from scripts.trivia_generators.schools_generator import SchoolsTriviaGenerator
+from scripts.trivia_generators.no_hitters_generator import NoHittersTriviaGenerator
+from scripts.trivia_generators.halloffame_generator import HallOfFameTriviaGenerator
+from scripts.trivia_generators.seriespost_generator import SeriesPostTriviaGenerator
+import argparse
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -104,6 +122,51 @@ class TriviaGenerator:
             logger.error(f"Error validating answer: {e}")
             return False
 
+def get_category_id(category_name):
+    with app.app_context():
+        result = db.session.execute(
+            text("SELECT id FROM trivia_categories WHERE name = :name"),
+            {"name": category_name}
+        ).fetchone()
+        return result.id if result else None
+
+def generate_trivia(category=None, count=20):
+    generators = {
+        'Pitching': PitchingTriviaGenerator,
+        'Team Performance': TeamTriviaGenerator,
+        'Awards': AwardsTriviaGenerator,
+        'Managers': ManagersTriviaGenerator,
+        'Franchises': FranchisesTriviaGenerator,
+        'Divisions': DivisionsTriviaGenerator,
+        'Leagues': LeaguesTriviaGenerator,
+        'Parks': ParksTriviaGenerator,
+        'Player Biographies': PeopleTriviaGenerator,
+        'Schools': SchoolsTriviaGenerator,
+        'No-Hitters': NoHittersTriviaGenerator,
+        'Hall of Fame': HallOfFameTriviaGenerator,
+        'Postseason': SeriesPostTriviaGenerator,
+    }
+
+    generated_questions = []
+
+    if category:
+        if category not in generators:
+            print(f"❌ Unknown category: {category}")
+            print(f"Available categories: {', '.join(generators.keys())}")
+            return []
+        
+        generator = generators[category]()
+        print(f"Generating {count} {category} questions...")
+        generated_questions.extend(generator.generate_batch(count))
+    else:
+        # Generate questions from all categories
+        for category_name, generator_class in generators.items():
+            print(f"\nGenerating {count} {category_name} questions...")
+            generator = generator_class()
+            generated_questions.extend(generator.generate_batch(count))
+    
+    return generated_questions
+
 def main():
     generator = TriviaGenerator()
     question = generator.generate_grid_question()
@@ -116,4 +179,9 @@ def main():
         logger.error("Failed to generate trivia question")
 
 if __name__ == "__main__":
-    main() 
+    parser = argparse.ArgumentParser(description='Generate baseball trivia questions')
+    parser.add_argument('--category', help='Category of questions to generate')
+    parser.add_argument('--count', type=int, default=20, help='Number of questions to generate')
+    
+    args = parser.parse_args()
+    generate_trivia(args.category, args.count) 

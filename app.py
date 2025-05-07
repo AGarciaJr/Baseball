@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
@@ -10,6 +10,7 @@ import logging
 from functools import wraps
 from datetime import datetime
 from sqlalchemy import text
+from db import get_db_connection, award_achievement
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -340,14 +341,33 @@ def submit_trivia_answer():
     })
     db.session.commit()
 
+    # ====== NEW: Check correct count and award achievements ======
+    score_result = db.session.execute(text("""
+        SELECT SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS correct
+        FROM trivia_answers
+        WHERE user_id = :uid
+    """), {"uid": current_user.id}).fetchone()
+
+    correct_score = score_result.correct or 0
+
+    from db import award_achievement
+    achievements_awarded = []
+
+    if correct_score >= 10:
+        if award_achievement(current_user.id, "Bronze Medal", "Scored 10 correct answers!", "static/achievements/bronze.png"):
+            achievements_awarded.append("Bronze Medal")
+    if correct_score >= 200:
+        if award_achievement(current_user.id, "Silver Medal", "Scored 200 correct answers!", "static/achievements/silver.png"):
+            achievements_awarded.append("Silver Medal")
+    if correct_score >= 500:
+        if award_achievement(current_user.id, "Gold Medal", "Scored 500 correct answers!", "static/achievements/gold.png"):
+            achievements_awarded.append("Gold Medal")
+
     return jsonify({
         "correct": correct,
-        "correct_answer": result.correct_answer
+        "correct_answer": result.correct_answer,
+        "achievements": achievements_awarded  # 👈 return this for frontend to toast
     })
-
-from flask import jsonify
-from flask_login import login_required, current_user
-from sqlalchemy import text
 
 @app.route('/api/trivia/score', methods=['GET'])
 @login_required
@@ -366,10 +386,50 @@ def get_trivia_score():
 @login_required
 @admin_required
 def generate_trivia_batch():
-    from scripts.admin_trivia_generator import generate_multiple_home_run_questions, generate_multiple_name_questions
+    from scripts.generate_trivia import generate_trivia
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "status": "error",
+                "message": "No data provided"
+            }), 400
+            
+        category = data.get('category')
+        count = data.get('count', 20)
+        
+        # Validate count
+        try:
+            count = int(count)
+            if count < 1 or count > 100:
+                return jsonify({
+                    "status": "error",
+                    "message": "Count must be between 1 and 100"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "status": "error",
+                "message": "Invalid count value"
+            }), 400
+        
+        generated_questions = generate_trivia(category, count)
+        return jsonify({
+            "status": "success",
+            "message": f"✅ Generated {len(generated_questions)} trivia questions" + 
+                      (f" for category '{category}'" if category else " across all categories"),
+            "questions": generated_questions
+        })
+    except Exception as e:
+        logger.error(f"Error generating trivia: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": f"❌ Error generating questions: {str(e)}"
+        }), 500
+    '''from scripts.admin_trivia_generator import generate_multiple_home_run_questions, generate_multiple_name_questions
     generate_multiple_home_run_questions(20)
     generate_multiple_name_questions(20)
-    return jsonify({"status": "✅ Generated 20 trivia questions of each type"})
+    return jsonify({"status": "✅ Generated 20 trivia questions of each type"})'''
 
 @app.route('/profile')
 @login_required
@@ -388,6 +448,210 @@ def profile():
     }
 
     return render_template('profile.html', stats=stats)
+
+@app.route('/team-nohitters-summary')
+def team_nohitters_summary():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    cur.execute("""
+        SELECT t.teamID, MAX(t.team_name) AS team_name, COUNT(*) AS no_hitter_count
+        FROM teams t
+        JOIN no_hitters nh ON t.teams_ID = nh.team_id OR t.teams_ID = nh.opponent_id
+        GROUP BY t.teamID
+        ORDER BY t.teamID
+    """)
+    teams = cur.fetchall()
+
+    cur.close()
+    conn.close()
+    return render_template('team_nohitters_summary.html', teams=teams)
+
+@app.route('/team-nohitters/<team_id>')
+def team_nohitters_detail(team_id):
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    # Get display name from one team row
+    cur.execute("SELECT teamID, team_name FROM teams WHERE teamID = %s LIMIT 1", (team_id,))
+    team = cur.fetchone()
+
+    # No-hitters thrown BY this teamID
+    cur.execute("""
+        SELECT nh.game_date, t.teamID, t.team_name
+        FROM no_hitters nh
+        JOIN teams t ON nh.team_id = t.teams_ID
+        WHERE t.teamID = %s
+    """, (team_id,))
+    thrown_by = cur.fetchall()
+
+    # No-hitters thrown AGAINST this teamID
+    cur.execute("""
+        SELECT nh.game_date, t.teamID AS pitcher_teamID, t.team_name AS pitcher_team_name
+        FROM no_hitters nh
+        JOIN teams t ON nh.team_id = t.teams_ID
+        WHERE nh.opponent_id IN (
+            SELECT teams_ID FROM teams WHERE teamID = %s
+        )
+    """, (team_id,))
+    thrown_against = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template('team_nohitters_detail.html',
+        team=team, thrown_by=thrown_by, thrown_against=thrown_against)
+
+@app.route('/team-nohitters-redirect', methods=['POST'])
+def team_nohitters_detail_redirect():
+    team_id = request.form['team_id']
+    return redirect(url_for('team_nohitters_detail', team_id=team_id))
+
+@app.route('/achievements')
+@login_required
+def view_achievements():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    cur.execute("""
+        SELECT name, description, image_path, date_earned
+        FROM achievements
+        WHERE user_id = %s
+        ORDER BY date_earned DESC
+    """, (current_user.id,))
+    achievements = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template("achievements.html", achievements=achievements)
+
+@app.route('/all-nohitters')
+@login_required
+def all_nohitters():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT nh.game_date, t1.team_name AS pitcher_team, t2.team_name AS opponent_team, nh.is_perfect, nh.num_pitchers, nh.notes
+        FROM no_hitters nh
+        JOIN teams t1 ON nh.team_id = t1.teams_ID
+        JOIN teams t2 ON nh.opponent_id = t2.teams_ID
+        ORDER BY nh.game_date DESC
+    """)
+    nohitters = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('all_nohitters.html', nohitters=nohitters)
+
+@app.route('/api/leaderboard')
+def get_leaderboard():
+    query = text("""
+        SELECT u.username, COUNT(*) AS score
+        FROM user u
+        JOIN trivia_answers a ON u.id = a.user_id
+        WHERE (u.is_banned IS NULL OR u.is_banned = 0)
+          AND a.is_correct = 1
+        GROUP BY u.id
+        ORDER BY score DESC
+        LIMIT 10
+    """)
+    result = db.session.execute(query)
+    leaderboard = [{'username': row[0], 'score': row[1]} for row in result]
+    return jsonify(leaderboard)
+
+
+
+@app.route('/leaderboard')
+def leaderboard_page():
+    return render_template('leaderboard.html')
+
+@app.route('/api/hangman/start', methods=['GET'])
+def start_hangman():
+    query = text("""
+        SELECT CONCAT(nameFirst, ' ', nameLast) AS fullname
+        FROM people
+        WHERE playerID IN (
+            SELECT playerID FROM halloffame
+            WHERE inducted = 'Y'
+        )
+        AND nameFirst IS NOT NULL AND nameLast IS NOT NULL
+        ORDER BY RAND()
+        LIMIT 1;
+    """)
+    result = db.session.execute(query).fetchone()
+    if not result:
+        return jsonify({'error': 'No names found'}), 404
+
+    word = result[0].upper()
+
+    # Store session data
+    session['hangman_word'] = word
+    session['correct_guesses'] = []
+    session['wrong_guesses'] = []
+    session['max_attempts'] = 6
+
+    # Return masked word like "_ _ _ _   _ _ _ _"
+    masked = ''.join([char if char == ' ' else '_' for char in word])
+    return jsonify({'masked': masked, 'attempts_left': 6})
+
+@app.route('/api/hangman/guess', methods=['POST'])
+def guess_letter():
+    data = request.get_json()
+    letter = data.get('letter', '').upper()
+
+    word = session.get('hangman_word', '')
+    correct = session.get('correct_guesses', [])
+    wrong = session.get('wrong_guesses', [])
+    max_attempts = session.get('max_attempts', 6)
+
+    if not word or not letter.isalpha() or len(letter) != 1:
+        return jsonify({'error': 'Invalid state or input'}), 400
+
+    if letter in correct or letter in wrong:
+        return jsonify({'message': 'Already guessed'}), 200
+
+    if letter in word:
+        correct.append(letter)
+        session['correct_guesses'] = correct
+    else:
+        wrong.append(letter)
+        session['wrong_guesses'] = wrong
+
+    masked = ''.join([char if (char in correct or char == ' ') else '_' for char in word])
+    attempts_left = max_attempts - len(wrong)
+
+    game_over = attempts_left <= 0
+    won = '_' not in masked
+
+    response = {
+        'masked': masked,
+        'wrong_guesses': wrong,
+        'attempts_left': attempts_left,
+        'game_over': game_over,
+        'won': won
+    }
+
+    if game_over:
+        response['correct_answer'] = word
+
+    return jsonify(response)
+
+@app.route('/hangman')
+def hangman_page():
+    return render_template('hangman.html')
+
+@app.route("/api/award_achievement", methods=["POST"])
+def api_award_achievement():
+    data = request.get_json()
+    name = data.get("name")
+    description = data.get("description")
+    image_path = data.get("image_path", None)
+
+    if not current_user.is_authenticated:
+        return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+    success = award_achievement(current_user.id, name, description, image_path)
+    return jsonify({"success": success})
 
 @app.route('/api/trivia/random_name')
 @login_required
