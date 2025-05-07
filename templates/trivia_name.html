@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Baseball Trivia – Name That Player{% endblock %}
+{% block title %}Baseball Trivia – Fill-In Challenge{% endblock %}
 
 {% block styles %}
 <style>
@@ -69,14 +69,15 @@
 {% endblock %}
 
 {% block content %}
+<!-- Hero Section -->
 <section class="hero text-center">
   <div class="container">
     <h1 class="display-4 fw-bold mb-3">
       <i class="fas fa-baseball-ball icon"></i>
-      Name That Player!
+      Baseball Trivia Challenge
     </h1>
     <p class="lead mb-4">
-      Can you name baseball players by team and era? Test your knowledge and climb the leaderboard.
+      Name players by team/era or by country — see if you can get them all!
     </p>
   </div>
 </section>
@@ -96,34 +97,44 @@
   <button id="next-btn" class="btn btn-secondary mt-3" style="display:none;">Next Challenge</button>
 </div>
 
-
-
 <script>
   let currentChallenge;
+  let challengeType;
 
   function loadChallenge() {
-    fetch('/api/trivia/random_name')
-      .then(res => res.json())
-      .then(data => {
-        currentChallenge = data;
-        document.getElementById('prompt').textContent = data.question_text;
+    // 2/3 chance for name question, 1/3 for country question
+    if (Math.random() < 2/3) {
+      challengeType = 'name';
+      fetch('/api/trivia/random_name')
+        .then(res => res.json())
+        .then(renderChallenge);
+    } else {
+      challengeType = 'country';
+      fetch('/api/trivia/random_country')
+        .then(res => res.json())
+        .then(renderChallenge);
+    }
+  }
 
-        const inputsDiv = document.getElementById('player-inputs');
-        inputsDiv.innerHTML = '';
-        for (let i = 0; i < data.num_required; i++) {
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.name = `player_${i}`;
-          input.placeholder = `Player #${i+1}`;
-          input.className = 'form-control mb-2';
-          input.required = true;
-          inputsDiv.appendChild(input);
-        }
+  function renderChallenge(data) {
+    currentChallenge = data;
+    document.getElementById('prompt').textContent = data.question_text;
 
-        document.getElementById('feedback').textContent = '';
-        document.getElementById('next-btn').style.display = 'none';
-        updateScore();
-      });
+    const inputsDiv = document.getElementById('player-inputs');
+    inputsDiv.innerHTML = '';
+    for (let i = 0; i < data.num_required; i++) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.name = `player_${i}`;
+      input.placeholder = `Player #${i + 1}`;
+      input.className = 'form-control mb-2';
+      input.required = true;
+      inputsDiv.appendChild(input);
+    }
+
+    document.getElementById('feedback').textContent = '';
+    document.getElementById('next-btn').style.display = 'none';
+    updateScore();
   }
 
   function updateScore() {
@@ -137,6 +148,7 @@
 
   document.getElementById('fill-form').onsubmit = ev => {
     ev.preventDefault();
+
     const inputs = document.querySelectorAll('#player-inputs input');
     const answers = Array.from(inputs).map(i => i.value.trim());
     const lower = answers.map(a => a.toLowerCase());
@@ -144,11 +156,15 @@
     if (dupes.length) {
       const uniqueDupes = [...new Set(dupes)];
       document.getElementById('feedback').textContent =
-        `Please remove duplicates: ${uniqueDupes.join(', ')}`;
+        `Please remove duplicate entries: ${uniqueDupes.join(', ')}`;
       return;
     }
 
-    fetch('/api/trivia/name/answer', {
+    const url = challengeType === 'name'
+      ? '/api/trivia/name/answer'
+      : '/api/trivia/country/answer';
+
+    fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -162,9 +178,7 @@
         `You got ${data.correct_count} / ${data.total_required} right. ` +
         `Correct answers: ${data.correct_answers.join(', ')}`;
 
-      document.querySelectorAll('#player-inputs input')
-        .forEach(i => i.disabled = true);
-
+      inputs.forEach(i => i.disabled = true);
       document.getElementById('next-btn').style.display = 'inline-block';
       updateScore();
     });
