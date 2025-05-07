@@ -65,3 +65,7 @@ The application uses the following main tables:
 ## License
 
 [Your chosen license]
+
+## ADMIN LOGIN
+username: 'admin'
+password: 'admin'
