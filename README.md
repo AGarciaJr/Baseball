@@ -13,7 +13,9 @@ A web-based baseball trivia game that allows users to test their knowledge of ba
 
 1. Create a virtual environment:
    ```bash
-   python -3.11 venv venv
+   python -m venv venv
+   or
+   py -3.11 -m venv venv 
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
@@ -33,9 +35,7 @@ A web-based baseball trivia game that allows users to test their knowledge of ba
 
 5. Initialize the database:
    ```bash
-   flask db init
-   flask db migrate
-   flask db upgrade
+   mysql -u root -p Sandlot2TheSQL < sql/Sandlot2TheSQL.sql
    ```
 
 6. Run the application:
@@ -45,7 +45,10 @@ A web-based baseball trivia game that allows users to test their knowledge of ba
 
 ## Team Members
 
-- [Your team members' names]
+- Brandon Liu
+- Alex Garcia
+- Francisco Rios
+- Lucas Bergman
 
 ## Database Schema
 
