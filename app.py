@@ -546,15 +546,27 @@ def all_nohitters():
 @app.route('/api/leaderboard')
 def get_leaderboard():
     query = text("""
-        SELECT u.username, COUNT(*) AS score
+        SELECT
+        u.username,
+        COALESCE(a.correct_count, 0) 
+        + COALESCE(n.correct_count, 0) AS score
         FROM user u
-        JOIN trivia_answers a ON u.id = a.user_id
+        LEFT JOIN (
+        SELECT user_id, COUNT(*) AS correct_count
+        FROM trivia_answers
+        WHERE is_correct = 1
+        GROUP BY user_id
+        ) a ON u.id = a.user_id
+        LEFT JOIN (
+        SELECT user_id, COUNT(*) AS correct_count
+        FROM trivia_name_answers
+        WHERE is_correct = 1
+        GROUP BY user_id
+        ) n ON u.id = n.user_id
         WHERE (u.is_banned IS NULL OR u.is_banned = 0)
-          AND a.is_correct = 1
-        GROUP BY u.id
         ORDER BY score DESC
         LIMIT 10
-    """)
+""")
     result = db.session.execute(query)
     leaderboard = [{'username': row[0], 'score': row[1]} for row in result]
     return jsonify(leaderboard)
@@ -687,14 +699,14 @@ def name_answer():
         return jsonify({'error':'invalid question_id'}), 400
 
     valid_rows = db.session.execute(text("""
-        SELECT DISTINCT p.playerID, p.nameFirst, p.nameLast FROM (
+        SELECT DISTINCT p.playerID, CONCAT(p.nameFirst, ' ', p.nameLast) as full_name FROM (
             SELECT f.playerID FROM fielding f WHERE f.teamID = :team_id AND f.yearID BETWEEN :start_year AND :end_year
             UNION
             SELECT b.playerID FROM batting b WHERE b.teamID  = :team_id AND b.yearID BETWEEN :start_year AND :end_year
         ) AS pl
         JOIN people p ON p.playerID = pl.playerID;
     """), {
-      'team': q.team_id,
+      'team_id': q.team_id,
       'start_year':   q.start_year,
       'end_year':   q.end_year
     }).fetchall()

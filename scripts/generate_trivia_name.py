@@ -62,5 +62,3 @@ def generate_team_players_question():
         db.session.commit()
         print(f"✅ Inserted: {question_text}")
 
-if __name__ == "__main__":
-    generate_team_players_question()
