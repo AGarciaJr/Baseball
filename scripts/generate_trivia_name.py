@@ -26,7 +26,7 @@ def generate_team_players_question():
             SELECT DISTINCT p.playerID, p.nameFirst, p.nameLast FROM (
                 SELECT f.playerID FROM fielding f WHERE f.teamID = :team_id AND f.yearID BETWEEN :start_year AND :end_year
                 UNION
-                SELECT b.playerID FROM batting b EHERE b.teamID  = :team_id AND b.yearID BETWEEN :start_year AND :end_year
+                SELECT b.playerID FROM batting b WHERE b.teamID  = :team_id AND b.yearID BETWEEN :start_year AND :end_year
             ) AS pl
             JOIN people p ON p.playerID = pl.playerID;
         """)

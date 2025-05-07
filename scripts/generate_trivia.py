@@ -18,6 +18,7 @@ from scripts.trivia_generators.schools_generator import SchoolsTriviaGenerator
 from scripts.trivia_generators.no_hitters_generator import NoHittersTriviaGenerator
 from scripts.trivia_generators.halloffame_generator import HallOfFameTriviaGenerator
 from scripts.trivia_generators.seriespost_generator import SeriesPostTriviaGenerator
+from scripts.generate_trivia_name import generate_team_players_question
 import argparse
 
 # Configure logging

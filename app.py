@@ -412,7 +412,7 @@ def generate_trivia_batch():
                 "status": "error",
                 "message": "Invalid count value"
             }), 400
-        
+        generate_multiple_name_questions(count)
         generated_questions = generate_trivia(category, count)
         return jsonify({
             "status": "success",
@@ -420,7 +420,6 @@ def generate_trivia_batch():
                       (f" for category '{category}'" if category else " across all categories"),
             "questions": generated_questions
         })
-        generate_multiple_name_questions(count)
     except Exception as e:
         logger.error(f"Error generating trivia: {str(e)}")
         return jsonify({
@@ -691,7 +690,7 @@ def name_answer():
         SELECT DISTINCT p.playerID, p.nameFirst, p.nameLast FROM (
             SELECT f.playerID FROM fielding f WHERE f.teamID = :team_id AND f.yearID BETWEEN :start_year AND :end_year
             UNION
-            SELECT b.playerID FROM batting b EHERE b.teamID  = :team_id AND b.yearID BETWEEN :start_year AND :end_year
+            SELECT b.playerID FROM batting b WHERE b.teamID  = :team_id AND b.yearID BETWEEN :start_year AND :end_year
         ) AS pl
         JOIN people p ON p.playerID = pl.playerID;
     """), {
