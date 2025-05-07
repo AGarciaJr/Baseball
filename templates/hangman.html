@@ -7,7 +7,6 @@
   <h2>Hall of Fame Hangman</h2>
   <p class="lead">Guess the name of a Hall of Fame player!</p>
 
-  <!-- Stickman Canvas -->
   <canvas id="hangman-canvas" width="200" height="250" class="mb-4 border rounded bg-light"></canvas>
 
   <h3 id="masked-word" class="mb-4" style="letter-spacing: 0.4rem;">Loading...</h3>
@@ -22,8 +21,40 @@
   <button id="restart-btn" class="btn btn-primary d-none mt-3">Play Again</button>
 </div>
 
+<!-- Achievement Toast -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <div id="achievementToast"
+       class="toast align-items-center text-bg-success border-0"
+       role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="achievementToastBody">
+        🎉 Achievement unlocked!
+      </div>
+      <button type="button"
+              class="btn-close btn-close-white me-2 m-auto"
+              data-bs-dismiss="toast"
+              aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
 <script>
   let gameOver = false;
+
+  function unlockAchievement(name, description, imagePath = null) {
+    fetch("/api/award_achievement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, description, image_path: imagePath })
+    }).then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const body = document.getElementById('achievementToastBody');
+          body.innerText = `🎉 Achievement unlocked: ${name}`;
+          new bootstrap.Toast(document.getElementById('achievementToast')).show();
+        }
+      });
+  }
 
   function createKeyboard() {
     const keyboard = document.getElementById('keyboard');
@@ -46,7 +77,6 @@
     ctx.strokeStyle = '#333';
 
     if (stage >= 1) {
-      // base + pole
       ctx.strokeRect(10, 230, 100, 10);
       ctx.beginPath();
       ctx.moveTo(60, 230);
@@ -126,7 +156,6 @@
       document.getElementById('masked-word').textContent = data.masked;
       document.getElementById('wrong-guesses').textContent = data.wrong_guesses.join(', ') || 'None';
       document.getElementById('attempts-left').textContent = data.attempts_left;
-
       drawHangmanStage(data.wrong_guesses.length);
 
       if (data.game_over || data.won) {
@@ -136,10 +165,33 @@
         msg.className = 'alert mt-3 ' + (data.won ? 'alert-success' : 'alert-danger');
 
         msg.textContent = data.won
-            ? 'You won! 🎉'
-            : 'Game over! 😢 The correct answer was: ' + (data.correct_answer || '???');
+          ? 'You won! 🎉'
+          : 'Game over! 😢 The correct answer was: ' + (data.correct_answer || '???');
 
         document.getElementById('restart-btn').classList.remove('d-none');
+
+        // === Achievements ===
+        if (data.won && data.wrong_guesses.length === 0) {
+          unlockAchievement("Perfect Guess", "Win without any wrong guesses", "/static/achievements/perfect.png");
+        }
+
+        if (data.won && data.attempts_left === 1) {
+          unlockAchievement("Close Call", "Win with only 1 guess left", "/static/achievements/close.png");
+        }
+
+        if (!data.won && data.wrong_guesses.length === 6) {
+          unlockAchievement("Tried Your Best", "Lose with max wrong guesses", "/static/achievements/dead.png");
+        }
+
+        if (data.won) {
+          let streak = parseInt(sessionStorage.getItem('hangman_streak') || "0") + 1;
+          sessionStorage.setItem('hangman_streak', streak);
+          if (streak >= 3) {
+            unlockAchievement("3-Win Streak", "Win 3 Hangman games in a row", "/static/achievements/streak.png");
+          }
+        } else {
+          sessionStorage.setItem('hangman_streak', "0");
+        }
       }
     });
   }
